@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Palomar SDR — Custom UI
 // @namespace    https://palomar-sdr.com/
-// @version      0.7.6
+// @version      0.7.7
 // @description  KiwiSDR-style overlay UI for palomar-sdr.com/radio.html
 // @author       WA2N / WA2ZKD
 // @match        https://palomar-sdr.com/radio.html
@@ -229,15 +229,16 @@ input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;bac
     <hr class="p-hr">
     <div class="p-s">Mode</div>
     <div class="br" id="p-modes">
-      <button class="wb" data-mode="AM">AM</button>
-      <button class="wb" data-mode="SAM">SAM</button>
-      <button class="wb" data-mode="LSB">LSB</button>
-      <button class="wb sel" data-mode="USB">USB</button>
+      <button class="wb" data-mode="am">AM</button>
+      <button class="wb" data-mode="sam">SAM</button>
+      <button class="wb" data-mode="lsb">LSB</button>
+      <button class="wb" data-mode="usb">USB</button>
     </div>
     <div class="br" style="margin-top:3px">
-      <button class="wb" data-mode="CW">CW</button>
-      <button class="wb" data-mode="NBFM">NBFM</button>
-      <button class="wb" data-mode="IQ">IQ</button>
+      <button class="wb" data-mode="cwu">CWU</button>
+      <button class="wb" data-mode="cwl">CWL</button>
+      <button class="wb" data-mode="fm">FM</button>
+      <button class="wb" data-mode="iq">IQ</button>
     </div>
 
     <hr class="p-hr">
@@ -336,10 +337,10 @@ const scC = $('p-sc'),  scCtx = scC.getContext('2d');
 // ── State ─────────────────────────────────────────────────────────
 let tuneKhz = 14225, centerKhz = 15000, spanKhz = 20000;
 let sc = -30, sf = -130;
-let paused = false, curMode = 'USB', diagOpen = false, smT = 0.35;
+let paused = false, curMode = 'usb', diagOpen = false, smT = 0.35;
 let maxH = null;
 const ZOOMS = [30000,20000,15000,10000,5000,2000,1000,500,200,100];
-const PB = {USB:[0,2.8],LSB:[-2.8,0],AM:[-4,4],SAM:[-4,4],CW:[-0.5,.5],NBFM:[-6,6],IQ:[-5,5]};
+const PB = {usb:[0,2.8],lsb:[-2.8,0],am:[-4,4],sam:[-4,4],cwu:[0,.5],cwl:[-.5,0],fm:[-6,6],iq:[-5,5]};
 
 // ── Sync from radio.js ────────────────────────────────────────────
 function syncFromRadio() {
@@ -349,6 +350,14 @@ function syncFromRadio() {
         // spanHz is declared with `let` in radio.js so it is NOT on `window`.
         // Read from the spectrum object which is kept in sync via setSpanHz().
         spanKhz   = (window.spectrum ? window.spectrum.spanHz : 0) / 1000;
+        // Sync mode from the original page's mode selector
+        const modeEl = document.getElementById('mode');
+        if (modeEl && modeEl.value) {
+            curMode = modeEl.value.toLowerCase();
+            document.querySelectorAll('#p-inner [data-mode]').forEach(b=>b.classList.remove('sel'));
+            const sel = document.querySelector('#p-inner [data-mode="'+curMode+'"]');
+            if (sel) sel.classList.add('sel');
+        }
         updateFDisp();
         $('p-badge').textContent = 'live — connected';
         $('p-badge').style.cssText = 'display:inline-block;background:#003a00;border:1px solid #007000;color:#44cc44;font:9px Arial;padding:1px 5px;border-radius:3px;margin-top:3px';
