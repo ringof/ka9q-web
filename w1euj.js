@@ -433,6 +433,8 @@ function drawSpec(bins) {
         spCtx.beginPath(); spCtx.moveTo(0,y); spCtx.lineTo(W,y); spCtx.stroke();
     }
 
+    drawPassband(spCtx, W, H);
+
     if (!bins) { drawTuneLine(spCtx, W, H); return; }
 
     const n = bins.length;
@@ -474,10 +476,26 @@ function drawSpec(bins) {
     drawTuneLine(spCtx, W, H);
 }
 
+function drawPassband(ctx, W, H) {
+    const pb = PB[curMode] || [0, 2.8];
+    const lo = centerKhz - spanKhz / 2;
+    const x0 = Math.round(((tuneKhz + pb[0] - lo) / spanKhz) * W);
+    const x1 = Math.round(((tuneKhz + pb[1] - lo) / spanKhz) * W);
+    const w  = x1 - x0;
+    if (w > 0) {
+        ctx.fillStyle = 'rgba(80,200,80,.15)';
+        ctx.fillRect(x0, 0, w, H);
+        // passband edges
+        ctx.strokeStyle = 'rgba(60,180,60,.5)'; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(x0, 0); ctx.lineTo(x0, H); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(x1, 0); ctx.lineTo(x1, H); ctx.stroke();
+    }
+}
+
 function drawTuneLine(ctx, W, H) {
     const x = Math.round(((tuneKhz - (centerKhz - spanKhz/2)) / spanKhz) * W);
     ctx.save();
-    ctx.strokeStyle = 'rgba(200,180,0,.7)'; ctx.lineWidth = 1; ctx.setLineDash([4,4]);
+    ctx.strokeStyle = 'rgba(255,0,0,.7)'; ctx.lineWidth = 1; ctx.setLineDash([4,4]);
     ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke();
     ctx.setLineDash([]); ctx.restore();
 }
