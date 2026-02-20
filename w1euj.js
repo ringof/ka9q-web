@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Palomar SDR — Custom UI
 // @namespace    https://palomar-sdr.com/
-// @version      0.9.5
+// @version      0.9.6
 // @description  KiwiSDR-style overlay UI for palomar-sdr.com/radio.html
 // @author       WA2N / WA2ZKD
 // @match        https://palomar-sdr.com/radio.html
@@ -267,7 +267,7 @@ input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;bac
       <div class="p-sl"><span class="p-sll">Sp min</span><input type="range" id="p-spmin" min="-160" max="0" value="-130"><span class="p-slv" id="p-spminv">-130</span></div>
       <div class="br" style="margin-top:3px">
         <button class="cb">COL</button>
-        <button class="cb">Auto</button>
+        <button class="cb" id="p-sp-auto">Auto</button>
         <button class="wb sel" id="p-run">▶ Run</button>
       </div>
     </div>
@@ -306,6 +306,7 @@ const scC = $('p-sc'),  scCtx = scC.getContext('2d');
 // ── State ─────────────────────────────────────────────────────────
 let tuneKhz = 14225, centerKhz = 15000, spanKhz = 20000;
 let sc = -30, sf = -130;
+let spAutoScale = false;
 let paused = false, curMode = 'usb', diagOpen = false, spOpen = false, smT = 0.35;
 let maxH = null;
 const ZOOMS = [30000,20000,15000,10000,5000,2000,1000,500,200,100];
@@ -432,6 +433,38 @@ function drawSpec(bins) {
     for (let x = 0; x < W; x++) {
         const b = Math.min(n-1, Math.floor((x/W)*n));
         pts[x] = bins[b];
+    }
+
+    // Autoscale: smoothly track bin min/max with margin
+    if (spAutoScale) {
+        let bMin = Infinity, bMax = -Infinity;
+        for (let i = 0; i < n; i++) {
+            if (bins[i] < bMin) bMin = bins[i];
+            if (bins[i] > bMax) bMax = bins[i];
+        }
+        // Add margin: 5 dB above, 10 dB below; snap to 10 dB grid
+        const tgt_max = Math.ceil((bMax + 5) / 10) * 10;
+        const tgt_min = Math.floor((bMin - 10) / 10) * 10;
+        // Smooth approach (exponential ease)
+        const a = 0.08;
+        sc += (tgt_max - sc) * a;
+        sf += (tgt_min - sf) * a;
+        // Snap when close enough
+        if (Math.abs(sc - tgt_max) < 0.5) sc = tgt_max;
+        if (Math.abs(sf - tgt_min) < 0.5) sf = tgt_min;
+        // Clamp to slider range
+        sc = Math.max(-160, Math.min(0, Math.round(sc)));
+        sf = Math.max(-160, Math.min(0, Math.round(sf)));
+        // Sync sliders + spectrum.js
+        $('p-spmax').value = sc; $('p-spmaxv').textContent = sc;
+        $('p-spmin').value = sf; $('p-spminv').textContent = sf;
+        $('p-wfmax').value = sc; $('p-wfmaxv').textContent = sc;
+        $('p-wfmin').value = sf; $('p-wfminv').textContent = sf;
+        if (window.spectrum) {
+            window.spectrum.max_db = sc; window.spectrum.min_db = sf;
+            window.spectrum.wf_max_db = sc; window.spectrum.wf_min_db = sf;
+        }
+        buildDbLabels();
     }
 
     // Decay max-hold
@@ -746,13 +779,18 @@ $('p-vol').oninput = function(){
     $('p-volv').textContent = this.value;
     if (typeof window.setPlayerVolume==='function') window.setPlayerVolume(+this.value/100);
 };
-$('p-wfmax').oninput = function(){ const v=+this.value; $('p-wfmaxv').textContent=v; if(window.spectrum) window.spectrum.wf_max_db=v; };
-$('p-wfmin').oninput = function(){ const v=+this.value; $('p-wfminv').textContent=v; if(window.spectrum) window.spectrum.wf_min_db=v; };
-$('p-spmax').oninput = function(){ sc=+this.value; $('p-spmaxv').textContent=sc; if(window.spectrum) window.spectrum.max_db=sc; buildDbLabels(); };
-$('p-spmin').oninput = function(){ sf=+this.value; $('p-spminv').textContent=sf; if(window.spectrum) window.spectrum.min_db=sf; buildDbLabels(); };
+function disableAutoScale(){ spAutoScale=false; $('p-sp-auto').classList.remove('sel'); }
+$('p-wfmax').oninput = function(){ disableAutoScale(); const v=+this.value; $('p-wfmaxv').textContent=v; if(window.spectrum) window.spectrum.wf_max_db=v; };
+$('p-wfmin').oninput = function(){ disableAutoScale(); const v=+this.value; $('p-wfminv').textContent=v; if(window.spectrum) window.spectrum.wf_min_db=v; };
+$('p-spmax').oninput = function(){ disableAutoScale(); sc=+this.value; $('p-spmaxv').textContent=sc; if(window.spectrum) window.spectrum.max_db=sc; buildDbLabels(); };
+$('p-spmin').oninput = function(){ disableAutoScale(); sf=+this.value; $('p-spminv').textContent=sf; if(window.spectrum) window.spectrum.min_db=sf; buildDbLabels(); };
 $('p-run').onclick  = function(){
     paused=!paused; this.textContent=paused?'⏸ Paused':'▶ Run';
     if(paused) this.classList.remove('sel'); else this.classList.add('sel');
+};
+$('p-sp-auto').onclick = function(){
+    spAutoScale = !spAutoScale;
+    this.classList.toggle('sel', spAutoScale);
 };
 
 $('p-vis').onclick = ()=>{
