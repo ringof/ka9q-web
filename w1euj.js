@@ -754,25 +754,36 @@ $('p-run').onclick  = function(){
     paused=!paused; this.textContent=paused?'⏸ Paused':'▶ Run';
     if(paused) this.classList.remove('sel'); else this.classList.add('sel');
 };
-// Sync panel sliders from spectrum.js values
-function syncSlidersFromSpectrum(){
-    const sp = window.spectrum; if(!sp) return;
-    sc = Math.round(sp.max_db); sf = Math.round(sp.min_db);
+function setSlidersAndRange(newMax, newMin){
+    sc = newMax; sf = newMin;
     $('p-spmax').value = sc; $('p-spmaxv').textContent = sc;
     $('p-spmin').value = sf; $('p-spminv').textContent = sf;
-    $('p-wfmax').value = Math.round(sp.wf_max_db); $('p-wfmaxv').textContent = Math.round(sp.wf_max_db);
-    $('p-wfmin').value = Math.round(sp.wf_min_db); $('p-wfminv').textContent = Math.round(sp.wf_min_db);
+    $('p-wfmax').value = sc; $('p-wfmaxv').textContent = sc;
+    $('p-wfmin').value = sf; $('p-wfminv').textContent = sf;
+    if (window.spectrum) {
+        window.spectrum.max_db = sc; window.spectrum.min_db = sf;
+        window.spectrum.wf_max_db = sc; window.spectrum.wf_min_db = sf;
+    }
     buildDbLabels();
 }
 $('p-sp-auto').onclick = function(){
     const sp = window.spectrum;
-    if(!sp || typeof sp.forceAutoscale !== 'function') return;
-    sp.forceAutoscale(100, false);
-    // spectrum.js applies new range after ~5 frames; poll to sync sliders
-    let checks = 0;
-    const poll = setInterval(()=>{
-        if(!sp.autoscale || ++checks > 30){ clearInterval(poll); syncSlidersFromSpectrum(); }
-    }, 100);
+    const bins = sp && sp.bin_copy;
+    if (!bins || bins.length === 0) return;
+    // Measure min/max from current bins (skip first/last 20 edge bins)
+    let bMin = Infinity, bMax = -Infinity;
+    const lo = Math.min(20, bins.length), hi = Math.max(lo, bins.length - 20);
+    for (let i = lo; i < hi; i++) {
+        if (bins[i] < bMin) bMin = bins[i];
+        if (bins[i] > bMax) bMax = bins[i];
+    }
+    // Round to 5 dB grid with margin
+    const newMax = Math.ceil((bMax + 5) / 5) * 5;
+    const newMin = Math.floor((bMin - 5) / 5) * 5;
+    setSlidersAndRange(
+        Math.max(-160, Math.min(0, newMax)),
+        Math.max(-160, Math.min(0, newMin))
+    );
 };
 
 $('p-vis').onclick = ()=>{
