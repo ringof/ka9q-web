@@ -174,9 +174,11 @@ input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;bac
 #p-dg-hdr{display:flex;align-items:center;justify-content:space-between;cursor:pointer;padding:4px 2px;border-top:3px solid #aaa;user-select:none;margin-top:2px}
 #p-dg-body{display:none;margin-top:3px}
 #p-dg-grid{display:grid;grid-template-columns:auto 1fr;gap:1px 8px;background:#3a3a3a;border-radius:5px;padding:6px 8px;font-size:11px;line-height:1.6}
-#p-stat{flex-shrink:0;padding-top:5px;border-top:1px solid #888;margin-top:4px;font-size:80%;color:#bbb}
-#p-clk{font-size:11px;color:#aaa}
-#p-badge{display:inline-block;background:#3a1500;border:1px solid #8a4500;color:#dd8800;font-size:9px;padding:1px 5px;border-radius:3px;margin-top:3px}
+#p-stat{flex-shrink:0;padding-top:5px;border-top:1px solid #888;margin-top:4px;font-size:11px;color:#bbb;display:flex;align-items:center;gap:6px}
+#p-stat a{color:#6af;text-decoration:none;font-size:11px}
+#p-stat a:hover{text-decoration:underline}
+#p-clk{color:#aaa;white-space:nowrap}
+#p-badge{display:inline-block;width:8px;height:8px;border-radius:50%;background:#8a4500;flex-shrink:0;cursor:default}
 </style>
 
 <div id="p-rf">
@@ -288,9 +290,12 @@ input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;bac
     <div style="flex:1;min-height:8px"></div>
 
     <div id="p-stat">
-      <div id="p-clk">00:00:00 UTC</div>
-      <div id="p-badge">connecting…</div>
-      <div style="margin-top:3px;font-size:80%;color:#888">Palomar SDR · WA2N / WA2ZKD</div>
+      <span style="color:#ccc">Palomar Mountain SDR</span>
+      <a href="mailto:palomar@w1euj.com">Contact</a>
+      <a href="https://www.google.com/maps/place/Palomar+Mountain,+CA/@33.3098418,-116.8497445,55m/data=!3m1!1e3!4m6!3m5!1s0x80db96d807967335:0xa072a1bb648f0269!8m2!3d33.3211759!4d-116.879633!16s%2Fg%2F11fk4qzsdg?entry=ttu" target="_blank" rel="noopener">Map</a>
+      <span style="flex:1"></span>
+      <span id="p-clk">00:00:00 UTC</span>
+      <span id="p-badge" title="Connecting…"></span>
     </div>
   </div>
 </div>
@@ -342,8 +347,8 @@ function syncFromRadio() {
             if (sel) sel.classList.add('sel');
         }
         updateFDisp();
-        $('p-badge').textContent = 'live — connected';
-        $('p-badge').style.cssText = 'display:inline-block;background:#003a00;border:1px solid #007000;color:#44cc44;font-size:9px;padding:1px 5px;border-radius:3px;margin-top:3px';
+        $('p-badge').title = 'Live — connected';
+        $('p-badge').style.background = '#44cc44';
     } else {
         setTimeout(syncFromRadio, 500);
     }
