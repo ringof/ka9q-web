@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Palomar SDR — Custom UI
 // @namespace    https://palomar-sdr.com/
-// @version      0.7.0
+// @version      0.7.4
 // @description  KiwiSDR-style overlay UI for palomar-sdr.com/radio.html
 // @author       WA2N / WA2ZKD
 // @match        https://palomar-sdr.com/radio.html
@@ -221,7 +221,6 @@ input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;bac
     <div class="p-s">Frequency</div>
     <input id="p-fin" value="14225.000" placeholder="kHz — Enter">
     <div class="br">
-      <button class="cb" id="p-set">Set ↵</button>
       <select class="ps" id="p-step" style="flex:1.5">
         <option>1 Hz</option><option>10 Hz</option><option>100 Hz</option>
         <option>500 Hz</option><option selected>1 kHz</option>
@@ -650,7 +649,6 @@ function getStep() {
     return parseFloat(s)/1000;
 }
 
-$('p-set').onclick = ()=>{ const v=parseFloat($('p-fin').value); if(!isNaN(v)) rjsTune(v); };
 $('p-fin').addEventListener('keydown', e=>{ if(e.key==='Enter'){ const v=parseFloat($('p-fin').value); if(!isNaN(v)) rjsTune(v); }});
 $('p-dn').onclick = ()=>rjsTune(Math.max(1, tuneKhz-getStep()));
 $('p-up').onclick = ()=>rjsTune(tuneKhz+getStep());
