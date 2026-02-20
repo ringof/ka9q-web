@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Palomar SDR — Custom UI
 // @namespace    https://palomar-sdr.com/
-// @version      0.8.2
+// @version      0.8.3
 // @description  KiwiSDR-style overlay UI for palomar-sdr.com/radio.html
 // @author       WA2N / WA2ZKD
 // @match        https://palomar-sdr.com/radio.html
@@ -610,6 +610,12 @@ function waitForReady() {
     if (!loopStarted) {
         loopStarted = true;
         console.log('[Palomar] source canvas ready, spectrumHeight =', sp.spectrumHeight, '— starting loop');
+        // Sync slider values from spectrum object
+        if (typeof sp.wf_max_db==='number'){ $('p-wfmax').value=sp.wf_max_db; $('p-wfmaxv').textContent=sp.wf_max_db; }
+        if (typeof sp.wf_min_db==='number'){ $('p-wfmin').value=sp.wf_min_db; $('p-wfminv').textContent=sp.wf_min_db; }
+        if (typeof sp.max_db==='number'){ sc=sp.max_db; $('p-spmax').value=sc; $('p-spmaxv').textContent=sc; }
+        if (typeof sp.min_db==='number'){ sf=sp.min_db; $('p-spmin').value=sf; $('p-spminv').textContent=sf; }
+        buildDbLabels();
         resize();
         requestAnimationFrame(loop);
     }
@@ -692,10 +698,10 @@ $('p-vol').oninput = function(){
     $('p-volv').textContent = this.value;
     if (typeof window.setPlayerVolume==='function') window.setPlayerVolume(+this.value/100);
 };
-$('p-wfmax').oninput = function(){ $('p-wfmaxv').textContent=this.value; };
-$('p-wfmin').oninput = function(){ $('p-wfminv').textContent=this.value; };
-$('p-spmax').oninput = function(){ sc=+this.value; $('p-spmaxv').textContent=sc; buildDbLabels(); };
-$('p-spmin').oninput = function(){ sf=+this.value; $('p-spminv').textContent=sf; buildDbLabels(); };
+$('p-wfmax').oninput = function(){ const v=+this.value; $('p-wfmaxv').textContent=v; if(window.spectrum) window.spectrum.wf_max_db=v; };
+$('p-wfmin').oninput = function(){ const v=+this.value; $('p-wfminv').textContent=v; if(window.spectrum) window.spectrum.wf_min_db=v; };
+$('p-spmax').oninput = function(){ sc=+this.value; $('p-spmaxv').textContent=sc; if(window.spectrum) window.spectrum.max_db=sc; buildDbLabels(); };
+$('p-spmin').oninput = function(){ sf=+this.value; $('p-spminv').textContent=sf; if(window.spectrum) window.spectrum.min_db=sf; buildDbLabels(); };
 $('p-run').onclick  = function(){
     paused=!paused; this.textContent=paused?'⏸ Paused':'▶ Run';
     if(paused) this.classList.remove('sel'); else this.classList.add('sel');
