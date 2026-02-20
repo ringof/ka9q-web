@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Palomar SDR — Custom UI
 // @namespace    https://palomar-sdr.com/
-// @version      0.7.8
+// @version      0.7.9
 // @description  KiwiSDR-style overlay UI for palomar-sdr.com/radio.html
 // @author       WA2N / WA2ZKD
 // @match        https://palomar-sdr.com/radio.html
@@ -37,6 +37,9 @@ function findSourceCanvas() {
 // Explicit IDs for OUR canvases are exempted so they stay visible.
 const hideCSS = document.createElement('style');
 hideCSS.textContent = `
+  html, body {
+    overflow: hidden !important;
+  }
   body > *:not(#p-overlay) {
     opacity: 0 !important;
     pointer-events: none !important;
