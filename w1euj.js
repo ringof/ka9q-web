@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Palomar SDR — Custom UI
 // @namespace    https://palomar-sdr.com/
-// @version      0.8.4
+// @version      0.9.0
 // @description  KiwiSDR-style overlay UI for palomar-sdr.com/radio.html
 // @author       WA2N / WA2ZKD
 // @match        https://palomar-sdr.com/radio.html
@@ -326,6 +326,20 @@ let maxH = null;
 const ZOOMS = [30000,20000,15000,10000,5000,2000,1000,500,200,100];
 const PB = {usb:[0,2.8],lsb:[-2.8,0],am:[-4,4],sam:[-4,4],cwu:[0,.5],cwl:[-.5,0],fm:[-6,6],iq:[-5,5]};
 
+// ── Presets ───────────────────────────────────────────────────────
+// Edit the values below to change the default startup behaviour.
+// Any key set to null or undefined is skipped (uses the page default).
+const PRESETS = {
+    autoStartAudio: true,    // click "▶ Audio" automatically on load
+    // volume:      70,      // 0–100
+    // mode:        'usb',   // am, sam, lsb, usb, cwu, cwl, fm, iq
+    // frequency:   14225,   // kHz
+    // wfMax:       -30,     // waterfall max dB
+    // wfMin:       -120,    // waterfall min dB
+    // spMax:       -30,     // spectrum max dB
+    // spMin:       -130,    // spectrum min dB
+};
+
 // ── Sync from radio.js ────────────────────────────────────────────
 function syncFromRadio() {
     if (typeof window.frequencyHz !== 'undefined') {
@@ -566,6 +580,46 @@ function updateFDisp() {
     drawScale(); updatePB();
 }
 
+// ── Apply presets ─────────────────────────────────────────────────
+// Called once after the radio is fully ready.  Reads from the PRESETS
+// object and drives the same functions the UI buttons use.
+let _presetsApplied = false;
+function applyPresets() {
+    if (_presetsApplied) return;
+    _presetsApplied = true;
+    console.log('[Palomar] applying presets', PRESETS);
+
+    if (PRESETS.volume != null) {
+        $('p-vol').value = PRESETS.volume;
+        $('p-volv').textContent = PRESETS.volume;
+        if (typeof window.setPlayerVolume === 'function') window.setPlayerVolume(PRESETS.volume / 100);
+    }
+    if (PRESETS.mode) {
+        rjsMode(PRESETS.mode);
+        document.querySelectorAll('#p-inner [data-mode]').forEach(b => b.classList.remove('sel'));
+        const sel = document.querySelector('#p-inner [data-mode="' + PRESETS.mode + '"]');
+        if (sel) sel.classList.add('sel');
+    }
+    if (PRESETS.frequency != null) rjsTune(PRESETS.frequency);
+    if (PRESETS.wfMax != null) { $('p-wfmax').value = PRESETS.wfMax; $('p-wfmaxv').textContent = PRESETS.wfMax; if (window.spectrum) window.spectrum.wf_max_db = PRESETS.wfMax; }
+    if (PRESETS.wfMin != null) { $('p-wfmin').value = PRESETS.wfMin; $('p-wfminv').textContent = PRESETS.wfMin; if (window.spectrum) window.spectrum.wf_min_db = PRESETS.wfMin; }
+    if (PRESETS.spMax != null) { sc = PRESETS.spMax; $('p-spmax').value = sc; $('p-spmaxv').textContent = sc; if (window.spectrum) window.spectrum.max_db = sc; buildDbLabels(); }
+    if (PRESETS.spMin != null) { sf = PRESETS.spMin; $('p-spmin').value = sf; $('p-spminv').textContent = sf; if (window.spectrum) window.spectrum.min_db = sf; buildDbLabels(); }
+
+    if (PRESETS.autoStartAudio) {
+        // Simulate clicking "▶ Audio" — wraps audio_start_stop with a
+        // short delay so the AudioContext resume() has the best chance
+        // of being allowed by the browser autoplay policy.
+        setTimeout(() => {
+            console.log('[Palomar] preset: auto-starting audio');
+            if (typeof window.audio_start_stop === 'function') {
+                window.audio_start_stop();
+                $('p-aud').classList.add('sel');
+            }
+        }, 600);
+    }
+}
+
 // ── Main loop ─────────────────────────────────────────────────────
 // Poll until the source canvas and spectrum object are ready before
 // starting rAF. This handles the async optionsDialog.html fetch in radio.js.
@@ -596,6 +650,7 @@ function waitForReady() {
         if (typeof sp.min_db==='number'){ sf=sp.min_db; $('p-spmin').value=sf; $('p-spminv').textContent=sf; }
         buildDbLabels();
         resize();
+        applyPresets();
         requestAnimationFrame(loop);
     }
 }
