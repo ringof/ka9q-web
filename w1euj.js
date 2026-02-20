@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Palomar SDR — Custom UI
 // @namespace    https://palomar-sdr.com/
-// @version      0.9.1
+// @version      0.9.2
 // @description  KiwiSDR-style overlay UI for palomar-sdr.com/radio.html
 // @author       WA2N / WA2ZKD
 // @match        https://palomar-sdr.com/radio.html
@@ -181,6 +181,8 @@ input[type=range]::-webkit-slider-runnable-track{height:3px;background:#808080;b
 input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:#fff;border:1px solid #808080;cursor:pointer;margin-top:-7px}
 input[type=range]::-moz-range-track{height:3px;background:#808080;border-radius:1px}
 input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;background:#fff;border:1px solid #808080}
+.p-col-hdr{display:flex;align-items:center;justify-content:space-between;cursor:pointer;padding:4px 2px;border-top:3px solid #aaa;user-select:none;margin-top:2px}
+.p-col-body{display:none;margin-top:3px}
 #p-dg-hdr{display:flex;align-items:center;justify-content:space-between;cursor:pointer;padding:4px 2px;border-top:3px solid #aaa;user-select:none;margin-top:2px}
 #p-dg-body{display:none;margin-top:3px}
 #p-dg-grid{display:grid;grid-template-columns:auto 1fr;gap:1px 8px;background:#3a3a3a;border-radius:5px;padding:6px 8px;font-size:11px;line-height:1.6}
@@ -273,16 +275,20 @@ input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;bac
       <span class="p-slv" id="p-volv">70</span>
     </div>
 
-    <hr class="p-hr">
-    <div class="p-s">Display</div>
-    <div class="p-sl"><span class="p-sll">WF max</span><input type="range" id="p-wfmax" min="-160" max="0" value="-30"><span class="p-slv" id="p-wfmaxv">-30</span></div>
-    <div class="p-sl"><span class="p-sll">WF min</span><input type="range" id="p-wfmin" min="-160" max="0" value="-120"><span class="p-slv" id="p-wfminv">-120</span></div>
-    <div class="p-sl"><span class="p-sll">Sp max</span><input type="range" id="p-spmax" min="-160" max="0" value="-30"><span class="p-slv" id="p-spmaxv">-30</span></div>
-    <div class="p-sl"><span class="p-sll">Sp min</span><input type="range" id="p-spmin" min="-160" max="0" value="-130"><span class="p-slv" id="p-spminv">-130</span></div>
-    <div class="br" style="margin-top:3px">
-      <button class="cb">COL</button>
-      <button class="cb">Auto</button>
-      <button class="wb sel" id="p-run">▶ Run</button>
+    <div class="p-col-hdr" id="p-sp-hdr">
+      <span style="font-size:80%;font-weight:bold;color:#ccc" id="p-sp-title">▸ SPECTRUM</span>
+      <span style="font-size:10px;color:#999" id="p-sp-arr">show</span>
+    </div>
+    <div class="p-col-body" id="p-sp-body">
+      <div class="p-sl"><span class="p-sll">WF max</span><input type="range" id="p-wfmax" min="-160" max="0" value="-30"><span class="p-slv" id="p-wfmaxv">-30</span></div>
+      <div class="p-sl"><span class="p-sll">WF min</span><input type="range" id="p-wfmin" min="-160" max="0" value="-120"><span class="p-slv" id="p-wfminv">-120</span></div>
+      <div class="p-sl"><span class="p-sll">Sp max</span><input type="range" id="p-spmax" min="-160" max="0" value="-30"><span class="p-slv" id="p-spmaxv">-30</span></div>
+      <div class="p-sl"><span class="p-sll">Sp min</span><input type="range" id="p-spmin" min="-160" max="0" value="-130"><span class="p-slv" id="p-spminv">-130</span></div>
+      <div class="br" style="margin-top:3px">
+        <button class="cb">COL</button>
+        <button class="cb">Auto</button>
+        <button class="wb sel" id="p-run">▶ Run</button>
+      </div>
     </div>
 
     <hr class="p-hr">
@@ -319,7 +325,7 @@ const scC = $('p-sc'),  scCtx = scC.getContext('2d');
 // ── State ─────────────────────────────────────────────────────────
 let tuneKhz = 14225, centerKhz = 15000, spanKhz = 20000;
 let sc = -30, sf = -130;
-let paused = false, curMode = 'usb', diagOpen = false, smT = 0.35;
+let paused = false, curMode = 'usb', diagOpen = false, spOpen = false, smT = 0.35;
 let maxH = null;
 const ZOOMS = [30000,20000,15000,10000,5000,2000,1000,500,200,100];
 const PB = {usb:[0,2.8],lsb:[-2.8,0],am:[-4,4],sam:[-4,4],cwu:[0,.5],cwl:[-.5,0],fm:[-6,6],iq:[-5,5]};
@@ -801,6 +807,12 @@ $('p-dg-hdr').onclick = ()=>{
     $('p-dg-arr').textContent=diagOpen?'hide':'show';
     $('p-dg-title').textContent=(diagOpen?'▾':'▸')+' RADIO STATUS';
     if(diagOpen) updateDiag();
+};
+$('p-sp-hdr').onclick = ()=>{
+    spOpen=!spOpen;
+    $('p-sp-body').style.display=spOpen?'block':'none';
+    $('p-sp-arr').textContent=spOpen?'hide':'show';
+    $('p-sp-title').textContent=(spOpen?'▾':'▸')+' SPECTRUM';
 };
 
 // ── Mouse / trackpad interactions on overlay canvases ─────────────
