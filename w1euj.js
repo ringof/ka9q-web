@@ -354,7 +354,9 @@ function syncFromRadio() {
     if (typeof window.frequencyHz !== 'undefined') {
         tuneKhz   = window.frequencyHz / 1000;
         centerKhz = window.centerHz   / 1000;
-        spanKhz   = window.spanHz     / 1000;
+        // spanHz is declared with `let` in radio.js so it is NOT on `window`.
+        // Read from the spectrum object which is kept in sync via setSpanHz().
+        spanKhz   = (window.spectrum ? window.spectrum.spanHz : 0) / 1000;
         updateFDisp();
         $('p-badge').textContent = 'live — connected';
         $('p-badge').style.cssText = 'display:inline-block;background:#003a00;border:1px solid #007000;color:#44cc44;font:9px Arial;padding:1px 5px;border-radius:3px;margin-top:3px';
@@ -610,7 +612,7 @@ function loop() {
         if (typeof window.frequencyHz !== 'undefined') {
             const rKhz = window.frequencyHz/1000;
             const cKhz = window.centerHz/1000;
-            const sKhz = window.spanHz/1000;
+            const sKhz = (window.spectrum ? window.spectrum.spanHz : 0)/1000;
             if (Math.abs(rKhz-tuneKhz)>.5 || Math.abs(cKhz-centerKhz)>.5 || Math.abs(sKhz-spanKhz)>.5) {
                 tuneKhz = rKhz; centerKhz = cKhz; spanKhz = sKhz;
                 updateFDisp(); buildDX();
