@@ -3,7 +3,7 @@
 // @namespace    https://palomar-sdr.com/
 // @version      0.9.6
 // @description  KiwiSDR-style overlay UI for palomar-sdr.com/radio.html
-// @author       WA2N / WA2ZKD
+// @author       W1EUJ
 // @match        https://palomar-sdr.com/radio.html
 // @match        http://palomar-sdr.com/radio.html
 // @grant        none
