@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Palomar SDR — Custom UI
 // @namespace    https://palomar-sdr.com/
-// @version      0.8.3
+// @version      0.8.4
 // @description  KiwiSDR-style overlay UI for palomar-sdr.com/radio.html
 // @author       WA2N / WA2ZKD
 // @match        https://palomar-sdr.com/radio.html
@@ -245,27 +245,6 @@ input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;bac
       <button class="wb" data-mode="fm">FM</button>
       <button class="wb" data-mode="iq">IQ</button>
     </div>
-
-    <hr class="p-hr">
-    <div class="p-s">Band</div>
-    <select class="ps" id="p-band">
-      <option value="">— Select band —</option>
-      <optgroup label="Amateur">
-        <option value="1825">160m · 1.825</option>
-        <option value="3700">80m · 3.700</option>
-        <option value="7100">40m · 7.100</option>
-        <option value="10130">30m · 10.130</option>
-        <option value="14175">20m · 14.175</option>
-        <option value="18100">17m · 18.100</option>
-        <option value="21200">15m · 21.200</option>
-        <option value="28500">10m · 28.500</option>
-      </optgroup>
-      <optgroup label="Broadcast / Utility">
-        <option value="5000">WWV · 5.000</option>
-        <option value="10000">WWV · 10.000</option>
-        <option value="15000">WWV · 15.000</option>
-      </optgroup>
-    </select>
 
     <hr class="p-hr">
     <div class="p-s">Zoom / Pan</div>
@@ -682,7 +661,6 @@ document.querySelectorAll('#p-inner [data-mode]').forEach(btn=>{
     };
 });
 
-$('p-band').onchange = function(){ const v=parseFloat(this.value); if(!isNaN(v)&&v>0) rjsTune(v); this.value=''; };
 
 $('p-zo').onclick  = ()=>{ if(typeof window.zoomout==='function') window.zoomout(); };
 $('p-zi').onclick  = ()=>{ if(typeof window.zoomin==='function')  window.zoomin();  };
