@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Palomar SDR — Custom UI
 // @namespace    https://palomar-sdr.com/
-// @version      0.8.0
+// @version      0.8.1
 // @description  KiwiSDR-style overlay UI for palomar-sdr.com/radio.html
 // @author       WA2N / WA2ZKD
 // @match        https://palomar-sdr.com/radio.html
@@ -94,7 +94,7 @@ OV.innerHTML = `
 }
 #p-tune-wrap{position:relative;flex-shrink:0}
 #p-dx-bar{height:18px;background:#f5f5f5;border-bottom:1px solid #ccc;position:relative;overflow:hidden}
-#p-tunelbl{position:absolute;top:1px;font-size:10px;font-weight:bold;color:#000;white-space:nowrap;pointer-events:none;z-index:3;transform:translateX(-50%)}
+#p-tunelbl{position:absolute;top:1px;font-size:10px;font-weight:bold;color:#000;white-space:nowrap;pointer-events:none;z-index:4;transform:translateX(-50%)}
 #p-sc-wrap{height:30px;position:relative;background:linear-gradient(to bottom,#c8c8c8,#e8e8e8,#c8c8c8)}
 #p-sc{display:block;width:100%;height:100%}
 .p-pb-cf{position:absolute;top:0;height:100%;background:rgba(255,255,0,.18);z-index:1}
@@ -202,7 +202,8 @@ input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;bac
 <div id="p-rf">
   <div id="p-sp-wrap"><div id="p-sp-db"></div><canvas id="p-sp"></canvas></div>
   <div id="p-tune-wrap">
-    <div id="p-dx-bar"><span id="p-tunelbl"></span></div>
+    <span id="p-tunelbl"></span>
+    <div id="p-dx-bar"></div>
     <div id="p-sc-wrap">
       <canvas id="p-sc"></canvas>
       <div class="p-pb-cut" id="p-pb-lo"></div>
