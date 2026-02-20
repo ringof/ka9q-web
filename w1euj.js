@@ -184,7 +184,6 @@ input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;bac
 #p-dg-hdr{display:flex;align-items:center;justify-content:space-between;cursor:pointer;padding:4px 2px;border-top:3px solid #aaa;user-select:none;margin-top:2px}
 #p-dg-body{display:none;margin-top:3px}
 #p-dg-grid{display:grid;grid-template-columns:auto 1fr;gap:1px 8px;background:#3a3a3a;border-radius:5px;padding:6px 8px;font-size:11px;line-height:1.6}
-#p-dg-solar{margin-top:5px;padding:4px 8px;background:#3a3a3a;border-radius:5px;font-size:10px;line-height:1.4;color:#dd0}
 #p-stat{flex-shrink:0;padding-top:5px;border-top:1px solid #888;margin-top:4px;font-size:80%;color:#bbb}
 #p-clk{font-size:11px;color:#aaa}
 #p-badge{display:inline-block;background:#3a1500;border:1px solid #8a4500;color:#dd8800;font-size:9px;padding:1px 5px;border-radius:3px;margin-top:3px}
@@ -299,7 +298,6 @@ input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;bac
     </div>
     <div id="p-dg-body">
       <div id="p-dg-grid"></div>
-      <div id="p-dg-solar"></div>
     </div>
 
     <div id="p-stat">
@@ -777,8 +775,6 @@ function updateDiag() {
         const ve=document.createElement('span'); ve.style.cssText='color:#eee;white-space:nowrap'; ve.textContent=fn();
         grid.appendChild(le); grid.appendChild(ve);
     }
-    const wwv = document.getElementById('wwv_solar');
-    if (wwv && wwv.textContent) $('p-dg-solar').textContent = wwv.textContent;
 }
 setInterval(updateDiag, 2000);
 $('p-dg-hdr').onclick = ()=>{
