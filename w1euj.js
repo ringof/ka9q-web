@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Palomar SDR — Custom UI
 // @namespace    https://palomar-sdr.com/
-// @version      0.8.1
+// @version      0.8.2
 // @description  KiwiSDR-style overlay UI for palomar-sdr.com/radio.html
 // @author       WA2N / WA2ZKD
 // @match        https://palomar-sdr.com/radio.html
@@ -506,7 +506,7 @@ function drawScale() {
         scCtx.strokeStyle = 'rgba(0,0,0,.15)'; scCtx.lineWidth = 1;
         scCtx.beginPath(); scCtx.moveTo(x,0); scCtx.lineTo(x,H); scCtx.stroke();
         scCtx.fillStyle = '#444';
-        scCtx.fillText(step<1?(f*1000).toFixed(0)+' k':f.toFixed(step<.1?2:step<1?1:0), x, H-2);
+        scCtx.fillText(step<1?(f*1000).toFixed(0):f.toFixed(step<.1?2:step<1?1:0), x, H-2);
     }
     updateTuneLabel();
 }
