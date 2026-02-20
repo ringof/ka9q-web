@@ -1,0 +1,779 @@
+// ==UserScript==
+// @name         Palomar SDR — Custom UI
+// @namespace    https://palomar-sdr.com/
+// @version      0.6.0
+// @description  KiwiSDR-style overlay UI for palomar-sdr.com/radio.html
+// @author       WA2N / WA2ZKD
+// @match        https://palomar-sdr.com/radio.html
+// @match        http://palomar-sdr.com/radio.html
+// @grant        none
+// @run-at       document-end
+// ==/UserScript==
+
+(function () {
+'use strict';
+
+// ═══════════════════════════════════════════════════════════════════
+// SOURCE CANVAS
+// spectrum.js renders everything into #waterfall:
+//   top spectrumPercent%  → spectrum trace + axes
+//   remainder             → waterfall rows
+//
+// We drawImage() the right slices into our own overlay canvases.
+// Raw FFT data is available from window.spectrum.bin_copy.
+// ═══════════════════════════════════════════════════════════════════
+let _src = null;      // set once #waterfall has real dimensions
+let _srcReady = false;
+
+function findSourceCanvas() {
+    const c = document.getElementById('waterfall');
+    if (c && c.width > 0 && c.height > 0) { _src = c; _srcReady = true; return true; }
+    return false;
+}
+
+// ── Hide original UI ──────────────────────────────────────────────
+// Use opacity:0 so the source canvas still composites and drawImage()
+// can read it. visibility:hidden can prevent GPU-composited readback.
+// Explicit IDs for OUR canvases are exempted so they stay visible.
+const hideCSS = document.createElement('style');
+hideCSS.textContent = `
+  body > *:not(#p-overlay) {
+    opacity: 0 !important;
+    pointer-events: none !important;
+  }
+  /* Keep source canvas rendered in-place — moving it off-screen stops
+     the browser from painting it, making drawImage() read black pixels.
+     Our overlay sits on top via z-index so #waterfall is never seen. */
+  canvas#waterfall {
+    opacity: 0 !important;
+    pointer-events: none !important;
+  }
+  /* Our overlay canvases must stay fully visible */
+  canvas#p-sp, canvas#p-wf, canvas#p-sc {
+    opacity: 1 !important;
+    position: static !important;
+    visibility: visible !important;
+    pointer-events: all !important;
+  }
+`;
+document.head.appendChild(hideCSS);
+
+// ── Overlay HTML ──────────────────────────────────────────────────
+const OV = document.createElement('div');
+OV.id = 'p-overlay';
+OV.innerHTML = `
+<style>
+#p-overlay,#p-overlay *{box-sizing:border-box;margin:0;padding:0}
+#p-overlay{
+  position:fixed;top:0;left:0;width:100%;height:100%;
+  z-index:2147483647;display:flex;flex-direction:column;
+  font-family:"DejaVu Sans",Verdana,Geneva,sans-serif;
+  font-size:13px;background:#000;color:#fff;overflow:hidden;
+}
+#p-tbar{
+  flex-shrink:0;height:48px;background:#ececec;
+  display:flex;align-items:center;padding:0 8px;gap:10px;
+  overflow:hidden;transition:height .15s;
+}
+#p-tbar.closed{height:0}
+#p-title{font-size:11pt;font-weight:bold;color:#909090;white-space:nowrap}
+#p-desc{font-size:9pt;color:#909090;white-space:nowrap}
+#p-ident{font-size:85%;color:#909090;margin-left:auto;white-space:nowrap}
+#p-tbar-arr{cursor:pointer;color:#909090;padding:0 6px;user-select:none;flex-shrink:0;font-size:16px}
+#p-tbar-arr:hover{color:#555}
+#p-rf{flex:1;position:relative;min-height:0;display:flex;flex-direction:column}
+#p-sp-wrap{height:140px;flex-shrink:0;background:#000;position:relative;cursor:crosshair}
+#p-sp{display:block;width:100%;height:100%}
+#p-sp-db{
+  position:absolute;top:0;left:2px;bottom:14px;
+  display:flex;flex-direction:column;justify-content:space-between;
+  pointer-events:none;font:8px Consolas,monospace;color:#3a3a3a;
+}
+#p-tune-wrap{position:relative;flex-shrink:0}
+#p-dx-bar{height:18px;background:#f5f5f5;border-bottom:1px solid #ccc;position:relative;overflow:hidden}
+#p-sc-wrap{height:30px;position:relative;background:linear-gradient(to bottom,#c8c8c8,#e8e8e8,#c8c8c8)}
+#p-sc{display:block;width:100%;height:100%}
+.p-pb-cf{position:absolute;top:0;height:100%;background:rgba(255,255,0,.18);z-index:1}
+.p-pb-cut{position:absolute;top:0;height:100%;width:5px;background:rgba(255,200,0,.5);z-index:2}
+.p-pb-car{position:absolute;top:0;height:100%;width:2px;background:rgba(255,255,0,.9);z-index:3}
+#p-wf-wrap{flex:1;position:relative;min-height:0;background:#1e5f7f;overflow:hidden;cursor:crosshair}
+#p-wf{display:block;width:100%;height:100%;pointer-events:none}
+#p-tip{
+  position:absolute;display:none;pointer-events:none;
+  background:#333;border:1px solid #666;color:#e8c000;
+  font:10px Consolas,monospace;padding:1px 5px;z-index:5;top:4px;
+}
+.p-dxl{position:absolute;width:1px;background:#000;top:0;bottom:0}
+.p-dxt{position:absolute;font-size:10px;padding:1px 3px;border:1px solid #000;
+  border-radius:3px;background:rgba(255,255,220,.85);color:#000;white-space:nowrap;top:1px}
+#p-panel{
+  position:fixed;right:0;top:48px;bottom:0;
+  display:flex;flex-direction:row;
+  background:#575757;color:#fff;font-size:85%;
+  border-radius:15px 0 0 15px;overflow:visible;
+  z-index:2147483647;transition:top .15s;
+}
+#p-panel.fullh{top:0}
+#p-panel.collapsed{background:transparent}
+#p-panel.collapsed #p-inner{width:0;padding:0;overflow:hidden}
+#p-vis{
+  position:absolute;left:-28px;top:calc(50% - 24px);
+  width:28px;height:48px;background:#575757;border-radius:5px 0 0 5px;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;
+  font-size:14px;color:#ccc;user-select:none;
+}
+#p-vis:hover{background:#666;color:#fff}
+#p-inner{
+  width:290px;overflow-y:auto;overflow-x:hidden;
+  display:flex;flex-direction:column;gap:5px;
+  padding:10px 8px 10px 10px;
+  scrollbar-width:thin;scrollbar-color:#777 #575757;
+}
+#p-inner::-webkit-scrollbar{width:5px}
+#p-inner::-webkit-scrollbar-thumb{background:#888}
+#p-fdisp{background:#000;border-radius:4px;padding:5px 8px;text-align:center;flex-shrink:0}
+#p-fnum{font:bold 30px/1 Consolas,monospace;color:#e8c000;letter-spacing:.02em;white-space:nowrap}
+#p-funit{font:9px Consolas;color:#a08000;letter-spacing:.1em;margin-top:1px}
+.p-hr{border:none;border-top:3px solid #aaa;margin:4px 0}
+.p-s{font-size:80%;font-weight:bold;color:#ccc;margin-bottom:2px}
+.cb{
+  display:inline-block;background:#373737;padding:3px 6px;border-radius:6px;
+  color:#fff;font-weight:bold;cursor:pointer;user-select:none;
+  border:none;outline:none;white-space:nowrap;font-size:inherit;
+}
+.cb:hover{background:#474747}.cb:active{background:#777}
+.cb.sel{background:#4CAF50!important;color:#fff}
+.wb{
+  display:inline-block;background:hsl(0,0%,92%);color:#000;
+  padding:3px 6px;border-radius:6px;font-weight:bold;cursor:pointer;
+  user-select:none;border:none;outline:none;white-space:nowrap;font-size:inherit;
+}
+.wb:hover{background:hsl(0,0%,82%)}
+.wb.sel{background:#4CAF50!important;color:#fff}
+.br{display:flex;gap:3px;flex-wrap:wrap;align-items:center}
+.br .cb,.br .wb{flex:1;text-align:center}
+#p-fin{
+  background:#222;border:1px solid #888;color:#e8c000;
+  font:13px Consolas,monospace;padding:3px 6px;width:100%;
+  text-align:right;outline:none;border-radius:3px;
+}
+#p-fin:focus{border-color:#e8c000}
+select.ps{
+  background:#444;border:1px solid #888;color:#fff;
+  font:inherit;padding:3px 4px;cursor:pointer;outline:none;
+  width:100%;border-radius:3px;
+}
+#p-sm{
+  border:4px solid gray;border-width:4px 5px;border-radius:5px;
+  height:20px;position:relative;overflow:hidden;
+  background:linear-gradient(90deg,#115511,#44aa44 38%,#aacc00 62%,#ddaa00 76%,#cc4400 87%,#990000);
+}
+#p-smf{position:absolute;right:0;top:0;bottom:0;background:#575757;transition:width .06s;width:65%}
+.p-sms{display:flex;justify-content:space-between;padding:0 2px;margin-top:1px}
+.p-sms span{font:8px Consolas;color:#ccc}
+#p-smv{font:10px Consolas;color:#aaa;text-align:right;margin-top:1px}
+.p-sl{display:flex;align-items:center;gap:5px;white-space:nowrap}
+.p-sll{font-size:85%;color:#ccc;width:50px;flex-shrink:0}
+.p-slv{font:9px Consolas;color:#aaa;width:28px;text-align:right;flex-shrink:0}
+input[type=range]{-webkit-appearance:none;height:22px;background:transparent;cursor:pointer;flex:1;min-width:0;outline:none}
+input[type=range]::-webkit-slider-runnable-track{height:3px;background:#808080;border-radius:1px}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:#fff;border:1px solid #808080;cursor:pointer;margin-top:-7px}
+input[type=range]::-moz-range-track{height:3px;background:#808080;border-radius:1px}
+input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;background:#fff;border:1px solid #808080}
+#p-dg-hdr{display:flex;align-items:center;justify-content:space-between;cursor:pointer;padding:4px 2px;border-top:3px solid #aaa;user-select:none;margin-top:2px}
+#p-dg-body{display:none;margin-top:3px}
+#p-dg-grid{display:grid;grid-template-columns:auto 1fr;gap:1px 8px;background:#3a3a3a;border-radius:5px;padding:6px 8px;font:11px/1.6 Consolas,monospace}
+#p-dg-solar{margin-top:5px;padding:4px 8px;background:#3a3a3a;border-radius:5px;font:10px/1.4 Consolas,monospace;color:#dd0}
+#p-stat{flex-shrink:0;padding-top:5px;border-top:1px solid #888;margin-top:4px;font-size:80%;color:#bbb}
+#p-clk{font:11px Consolas;color:#aaa}
+#p-badge{display:inline-block;background:#3a1500;border:1px solid #8a4500;color:#dd8800;font:9px Arial;padding:1px 5px;border-radius:3px;margin-top:3px}
+</style>
+
+<div id="p-tbar">
+  <div style="display:flex;flex-direction:column">
+    <div id="p-title">Palomar SDR</div>
+    <div id="p-desc">palomar-sdr.com · 0–30 MHz · WA2N / WA2ZKD</div>
+  </div>
+  <div id="p-ident">00:00:00 UTC</div>
+  <div id="p-tbar-arr">▲</div>
+</div>
+
+<div id="p-rf">
+  <div id="p-sp-wrap"><div id="p-sp-db"></div><canvas id="p-sp"></canvas></div>
+  <div id="p-tune-wrap">
+    <div id="p-dx-bar"></div>
+    <div id="p-sc-wrap">
+      <canvas id="p-sc"></canvas>
+      <div class="p-pb-cut" id="p-pb-lo"></div>
+      <div class="p-pb-cut" id="p-pb-hi"></div>
+      <div class="p-pb-cf"  id="p-pb-cf"></div>
+      <div class="p-pb-car" id="p-pb-car"></div>
+    </div>
+  </div>
+  <div id="p-wf-wrap"><canvas id="p-wf"></canvas><div id="p-tip"></div></div>
+</div>
+
+<div id="p-panel">
+  <div id="p-vis">◀</div>
+  <div id="p-inner">
+    <div id="p-fdisp"><div id="p-fnum">—</div><div id="p-funit">kHz</div></div>
+
+    <div class="p-s">Frequency</div>
+    <input id="p-fin" value="14225.000" placeholder="kHz — Enter">
+    <div class="br">
+      <button class="cb" id="p-set">Set ↵</button>
+      <select class="ps" id="p-step" style="flex:1.5">
+        <option>1 Hz</option><option>10 Hz</option><option>100 Hz</option>
+        <option>500 Hz</option><option selected>1 kHz</option>
+        <option>5 kHz</option><option>10 kHz</option>
+        <option>100 kHz</option><option>1 MHz</option>
+      </select>
+    </div>
+    <div class="br">
+      <button class="cb" id="p-dn">− Step</button>
+      <button class="cb" id="p-up">+ Step</button>
+    </div>
+
+    <hr class="p-hr">
+    <div class="p-s">Mode</div>
+    <div class="br" id="p-modes">
+      <button class="wb" data-mode="AM">AM</button>
+      <button class="wb" data-mode="SAM">SAM</button>
+      <button class="wb" data-mode="LSB">LSB</button>
+      <button class="wb sel" data-mode="USB">USB</button>
+    </div>
+    <div class="br" style="margin-top:3px">
+      <button class="wb" data-mode="CW">CW</button>
+      <button class="wb" data-mode="NBFM">NBFM</button>
+      <button class="wb" data-mode="IQ">IQ</button>
+    </div>
+
+    <hr class="p-hr">
+    <div class="p-s">Band</div>
+    <select class="ps" id="p-band">
+      <option value="">— Select band —</option>
+      <optgroup label="Amateur">
+        <option value="1825">160m · 1.825</option>
+        <option value="3700">80m · 3.700</option>
+        <option value="7100">40m · 7.100</option>
+        <option value="10130">30m · 10.130</option>
+        <option value="14175">20m · 14.175</option>
+        <option value="18100">17m · 18.100</option>
+        <option value="21200">15m · 21.200</option>
+        <option value="28500">10m · 28.500</option>
+      </optgroup>
+      <optgroup label="Broadcast / Utility">
+        <option value="5000">WWV · 5.000</option>
+        <option value="10000">WWV · 10.000</option>
+        <option value="15000">WWV · 15.000</option>
+      </optgroup>
+    </select>
+
+    <hr class="p-hr">
+    <div class="p-s">Zoom / Pan</div>
+    <div class="br">
+      <button class="cb" id="p-zo">Z −</button>
+      <button class="cb" id="p-zi">Z +</button>
+      <button class="cb" id="p-pl">◀</button>
+      <button class="cb" id="p-pr">▶</button>
+      <button class="cb" id="p-ctr">Ctr</button>
+    </div>
+
+    <hr class="p-hr">
+    <div class="p-s">Signal</div>
+    <div id="p-sm"><div id="p-smf"></div></div>
+    <div class="p-sms"><span>1</span><span>3</span><span>5</span><span>7</span><span>9</span><span>+20</span><span>+40</span></div>
+    <div id="p-smv">S— · — dBm</div>
+
+    <hr class="p-hr">
+    <div class="p-s">Audio</div>
+    <div class="br">
+      <button class="wb sel" id="p-aud">▶ Audio</button>
+      <button class="cb" style="color:#ff8080">⏺ Rec</button>
+    </div>
+    <div class="p-sl" style="margin-top:3px">
+      <span class="p-sll">Volume</span>
+      <input type="range" id="p-vol" min="0" max="100" value="70">
+      <span class="p-slv" id="p-volv">70</span>
+    </div>
+
+    <hr class="p-hr">
+    <div class="p-s">Display</div>
+    <div class="p-sl"><span class="p-sll">WF max</span><input type="range" id="p-wfmax" min="-160" max="0" value="-30"><span class="p-slv" id="p-wfmaxv">-30</span></div>
+    <div class="p-sl"><span class="p-sll">WF min</span><input type="range" id="p-wfmin" min="-160" max="0" value="-120"><span class="p-slv" id="p-wfminv">-120</span></div>
+    <div class="p-sl"><span class="p-sll">Sp max</span><input type="range" id="p-spmax" min="-160" max="0" value="-30"><span class="p-slv" id="p-spmaxv">-30</span></div>
+    <div class="p-sl"><span class="p-sll">Sp min</span><input type="range" id="p-spmin" min="-160" max="0" value="-130"><span class="p-slv" id="p-spminv">-130</span></div>
+    <div class="br" style="margin-top:3px">
+      <button class="cb">COL</button>
+      <button class="cb">Auto</button>
+      <button class="wb sel" id="p-run">▶ Run</button>
+    </div>
+
+    <hr class="p-hr">
+    <div class="p-s">Options</div>
+    <div class="br"><button class="cb">DX labels</button><button class="cb">Memories</button></div>
+    <div class="br" style="margin-top:3px"><button class="cb">Ext ▼</button><button class="cb">Help</button></div>
+
+    <div style="flex:1;min-height:8px"></div>
+
+    <div id="p-dg-hdr">
+      <span style="font-size:80%;font-weight:bold;color:#ccc" id="p-dg-title">▸ RADIO STATUS</span>
+      <span style="font-size:10px;color:#999" id="p-dg-arr">show</span>
+    </div>
+    <div id="p-dg-body">
+      <div id="p-dg-grid"></div>
+      <div id="p-dg-solar"></div>
+    </div>
+
+    <div id="p-stat">
+      <div id="p-clk">00:00:00 UTC</div>
+      <div id="p-badge">connecting…</div>
+      <div style="margin-top:3px;font-size:80%;color:#888">Palomar SDR · WA2N / WA2ZKD</div>
+    </div>
+  </div>
+</div>
+`;
+document.body.appendChild(OV);
+
+// ── Canvas setup ──────────────────────────────────────────────────
+const $ = id => document.getElementById(id);
+const wfC = $('p-wf'),  wfCtx = wfC.getContext('2d');
+const spC = $('p-sp'),  spCtx = spC.getContext('2d');
+const scC = $('p-sc'),  scCtx = scC.getContext('2d');
+
+// ── State ─────────────────────────────────────────────────────────
+let tuneKhz = 14225, centerKhz = 15000, spanKhz = 20000;
+let sc = -30, sf = -130;
+let paused = false, curMode = 'USB', diagOpen = false, smT = 0.35;
+let maxH = null;
+const ZOOMS = [30000,20000,15000,10000,5000,2000,1000,500,200,100];
+const PB = {USB:[0,2.8],LSB:[-2.8,0],AM:[-4,4],SAM:[-4,4],CW:[-0.5,.5],NBFM:[-6,6],IQ:[-5,5]};
+
+// ── Sync from radio.js ────────────────────────────────────────────
+function syncFromRadio() {
+    if (typeof window.frequencyHz !== 'undefined') {
+        tuneKhz   = window.frequencyHz / 1000;
+        centerKhz = window.centerHz   / 1000;
+        spanKhz   = window.spanHz     / 1000;
+        updateFDisp();
+        $('p-badge').textContent = 'live — connected';
+        $('p-badge').style.cssText = 'display:inline-block;background:#003a00;border:1px solid #007000;color:#44cc44;font:9px Arial;padding:1px 5px;border-radius:3px;margin-top:3px';
+    } else {
+        setTimeout(syncFromRadio, 500);
+    }
+}
+syncFromRadio();
+
+// ── Resize ────────────────────────────────────────────────────────
+function resize() {
+    [spC, wfC, scC].forEach(c => {
+        const W = c.parentElement.clientWidth, H = c.parentElement.clientHeight;
+        if (c.width !== W || c.height !== H) {
+            c.width = W; c.height = H;
+            if (c === spC) maxH = null;
+        }
+    });
+    buildDX(); drawScale(); buildDbLabels(); updatePB();
+}
+
+// ══════════════════════════════════════════════════════════════════
+// RENDER
+//
+// spectrum.js draws into _src (#waterfall):
+//   top spectrumHeight px → spectrum trace + axes
+//   remaining px          → waterfall rows
+//
+// We must wait until:
+//   1. _src exists and has real dimensions
+//   2. window.spectrum is constructed
+//   3. window.spectrum.spectrumHeight > 0  (set by updateSpectrumRatio,
+//      which fires once the canvas has clientWidth/clientHeight — i.e.
+//      after init() finishes inside the optionsDialog fetch callback)
+// ══════════════════════════════════════════════════════════════════
+function renderFromSource() {
+    if (!_srcReady) return;
+
+    const sp = window.spectrum;
+
+    // Guard: spectrum object must be live and have a measured spectrumHeight
+    if (!sp || !(sp.spectrumHeight > 0)) return;
+
+    const specH   = sp.spectrumHeight;
+    const srcW    = _src.width;
+    const srcH    = _src.height;
+    const wfSrcH  = srcH - specH;
+
+    if (srcW <= 0 || srcH <= 0) return;
+
+    // ── Waterfall: copy the bottom portion of the source canvas ──
+    if (wfC.width > 0 && wfC.height > 0 && wfSrcH > 0) {
+        wfCtx.drawImage(_src,
+            0, specH, srcW, wfSrcH,      // source: waterfall region
+            0, 0,     wfC.width, wfC.height  // dest:   our full wf canvas
+        );
+        drawTuneLine(wfCtx, wfC.width, wfC.height);
+    }
+
+    // ── Spectrum: prefer bin_copy for our custom trace style ──────
+    if (spC.width > 0 && spC.height > 0) {
+        const bins = (sp.bin_copy && sp.bin_copy.length > 0) ? sp.bin_copy : null;
+        drawSpec(bins);
+    }
+}
+
+// ── Spectrum trace ────────────────────────────────────────────────
+function drawSpec(bins) {
+    const W = spC.width, H = spC.height;
+    const dR = sc - sf;
+    spCtx.fillStyle = '#000'; spCtx.fillRect(0, 0, W, H);
+
+    // Horizontal dB grid lines
+    spCtx.strokeStyle = 'rgba(255,255,255,.04)'; spCtx.lineWidth = 1;
+    for (let db = Math.ceil(sf/10)*10; db <= sc; db += 10) {
+        const y = H - ((db-sf)/dR)*H;
+        spCtx.beginPath(); spCtx.moveTo(0,y); spCtx.lineTo(W,y); spCtx.stroke();
+    }
+
+    if (!bins) { drawTuneLine(spCtx, W, H); return; }
+
+    const n = bins.length;
+    if (!maxH || maxH.length !== W) maxH = new Float32Array(W).fill(sf);
+
+    // Map bins → pixel columns
+    const pts = new Float32Array(W);
+    for (let x = 0; x < W; x++) {
+        const b = Math.min(n-1, Math.floor((x/W)*n));
+        pts[x] = bins[b];
+    }
+
+    // Decay max-hold
+    for (let x = 0; x < W; x++) {
+        if (pts[x] > maxH[x]) maxH[x] = pts[x];
+        else maxH[x] = maxH[x]*.997 + pts[x]*.003;
+    }
+
+    // Max-hold trace (dim orange-red)
+    spCtx.beginPath(); spCtx.strokeStyle = 'rgba(180,80,50,.4)'; spCtx.lineWidth = 1;
+    for (let x = 0; x < W; x++) {
+        const y = H - Math.max(0, Math.min(H, ((maxH[x]-sf)/dR)*H));
+        x === 0 ? spCtx.moveTo(x,y) : spCtx.lineTo(x,y);
+    } spCtx.stroke();
+
+    // Filled area + live trace
+    spCtx.beginPath(); spCtx.moveTo(0, H);
+    for (let x = 0; x < W; x++) spCtx.lineTo(x, H - Math.max(0, Math.min(H, ((pts[x]-sf)/dR)*H)));
+    spCtx.lineTo(W, H); spCtx.closePath();
+    const g = spCtx.createLinearGradient(0,0,0,H);
+    g.addColorStop(0,'rgba(70,170,70,.72)'); g.addColorStop(.5,'rgba(35,95,35,.25)'); g.addColorStop(1,'rgba(0,0,0,0)');
+    spCtx.fillStyle = g; spCtx.fill();
+    spCtx.beginPath(); spCtx.strokeStyle = '#55bb55'; spCtx.lineWidth = 1.2;
+    for (let x = 0; x < W; x++) {
+        const y = H - Math.max(0, Math.min(H, ((pts[x]-sf)/dR)*H));
+        x === 0 ? spCtx.moveTo(x,y) : spCtx.lineTo(x,y);
+    } spCtx.stroke();
+
+    drawTuneLine(spCtx, W, H);
+}
+
+function drawTuneLine(ctx, W, H) {
+    const x = Math.round(((tuneKhz - (centerKhz - spanKhz/2)) / spanKhz) * W);
+    ctx.save();
+    ctx.strokeStyle = 'rgba(200,180,0,.7)'; ctx.lineWidth = 1; ctx.setLineDash([4,4]);
+    ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke();
+    ctx.setLineDash([]); ctx.restore();
+}
+
+// ── Frequency scale ───────────────────────────────────────────────
+function drawScale() {
+    const W = scC.width, H = scC.height; if (!W) return;
+    const g = scCtx.createLinearGradient(0,0,0,H);
+    g.addColorStop(0,'#c8c8c8'); g.addColorStop(.5,'#e8e8e8'); g.addColorStop(1,'#c8c8c8');
+    scCtx.fillStyle = g; scCtx.fillRect(0,0,W,H);
+    const lo = (centerKhz-spanKhz/2)/1000, hi = (centerKhz+spanKhz/2)/1000, range = hi-lo;
+    const steps = [.001,.002,.005,.01,.02,.05,.1,.2,.5,1,2,5,10,15,20];
+    let step = 1; for (const s of steps) { if (range/s <= 14) { step=s; break; } }
+    scCtx.font = '9px Arial'; scCtx.textAlign = 'center';
+    for (let f = Math.ceil(lo/step)*step; f <= hi+step*.001; f += step) {
+        const x = ((f-lo)/range)*W;
+        scCtx.strokeStyle = 'rgba(0,0,0,.15)'; scCtx.lineWidth = 1;
+        scCtx.beginPath(); scCtx.moveTo(x,0); scCtx.lineTo(x,H); scCtx.stroke();
+        scCtx.fillStyle = '#444';
+        scCtx.fillText(step<1?(f*1000).toFixed(0)+' k':f.toFixed(step<.1?2:step<1?1:0), x, H-2);
+    }
+    const tx = ((tuneKhz/1000-lo)/range)*W;
+    scCtx.fillStyle = '#000'; scCtx.font = 'bold 9px Arial';
+    scCtx.fillText((tuneKhz/1000).toFixed(3)+' MHz', tx, 10);
+}
+
+function updatePB() {
+    const W = scC.width; if (!W) return;
+    const pb = PB[curMode]||[0,2.8], lo = centerKhz-spanKhz/2, H = $('p-sc-wrap').clientHeight;
+    const car = Math.round(((tuneKhz-lo)/spanKhz)*W);
+    const x0  = Math.round(((tuneKhz+pb[0]-lo)/spanKhz)*W);
+    const x1  = Math.round(((tuneKhz+pb[1]-lo)/spanKhz)*W);
+    $('p-pb-lo').style.cssText = `left:${x0-2}px;height:${H}px`;
+    $('p-pb-hi').style.cssText = `left:${x1-2}px;height:${H}px`;
+    $('p-pb-cf').style.cssText = `left:${x0}px;width:${Math.max(0,x1-x0)}px;height:${H}px`;
+    $('p-pb-car').style.cssText = `left:${car-1}px;height:${H}px`;
+}
+
+function buildDbLabels() {
+    const H = spC.height; if (!H) return;
+    const el = $('p-sp-db'), dR = sc-sf; el.innerHTML = '';
+    for (let db = Math.ceil(sf/20)*20; db <= sc; db += 20) {
+        const s = document.createElement('span');
+        s.textContent = db;
+        s.style.cssText = `position:absolute;top:${Math.round(H-((db-sf)/dR)*H-6)}px`;
+        el.appendChild(s);
+    }
+}
+
+const DX=[
+    {f:5000,l:'WWV'},{f:10000,l:'WWV'},{f:15000,l:'WWV'},
+    {f:7074,l:'FT8'},{f:14074,l:'FT8'},{f:21074,l:'FT8'},
+    {f:14100,l:'WSPR'},{f:14225,l:'SSB'},{f:9975,l:'CHU'},
+    {f:7200,l:'AM'},{f:9500,l:'SW'},
+];
+function buildDX() {
+    const bar = $('p-dx-bar'); bar.innerHTML = '';
+    const W = bar.clientWidth, lo = centerKhz-spanKhz/2;
+    for (const {f,l} of DX) {
+        const x = ((f-lo)/spanKhz)*W; if (x<2||x>W-2) continue;
+        const ln = document.createElement('div'); ln.className='p-dxl'; ln.style.left=x+'px'; bar.appendChild(ln);
+        const lb = document.createElement('div'); lb.className='p-dxt'; lb.style.left=(x+2)+'px'; lb.textContent=l; bar.appendChild(lb);
+    }
+}
+
+// ── S-meter ───────────────────────────────────────────────────────
+// Read baseband power directly from radio.js if available, otherwise simulate
+function tickSM() {
+    const pwr = (typeof window.power !== 'undefined') ? window.power : null;
+    if (pwr !== null && isFinite(pwr)) {
+        // power is already in dBm (radio.js: power = 10*log10(power))
+        const dBm = pwr;
+        // Map roughly -120 dBm → 0, -40 dBm → 1
+        smT = Math.max(0, Math.min(1, (dBm + 120) / 80));
+    } else {
+        smT += (Math.random()-.5)*.05;
+        smT = Math.max(.02, Math.min(.97, smT));
+    }
+    $('p-smf').style.width = ((1-smT)*100)+'%';
+    const sv = Math.max(1, Math.min(9, Math.ceil(smT*9)));
+    $('p-smv').textContent = `S${sv}  ${Math.round(-120+smT*80)} dBm`;
+}
+
+// ── Clock ─────────────────────────────────────────────────────────
+function updateClock() {
+    const n = new Date(), p = v => String(v).padStart(2,'0');
+    const s = `${p(n.getUTCHours())}:${p(n.getUTCMinutes())}:${p(n.getUTCSeconds())} UTC`;
+    $('p-clk').textContent = s; $('p-ident').textContent = s;
+}
+
+function updateFDisp() {
+    $('p-fnum').textContent = tuneKhz.toFixed(2);
+    $('p-fin').value = tuneKhz.toFixed(3);
+    drawScale(); updatePB();
+}
+
+// ── Main loop ─────────────────────────────────────────────────────
+// Poll until the source canvas and spectrum object are ready before
+// starting rAF. This handles the async optionsDialog.html fetch in radio.js.
+let loopStarted = false;
+let frame = 0;
+
+function waitForReady() {
+    // Step 1: find the source canvas once it has real dimensions
+    if (!_srcReady) {
+        findSourceCanvas();
+        setTimeout(waitForReady, 100);
+        return;
+    }
+    // Step 2: wait for window.spectrum to be constructed and fully sized
+    const sp = window.spectrum;
+    if (!sp || !(sp.spectrumHeight > 0)) {
+        setTimeout(waitForReady, 100);
+        return;
+    }
+    // Ready — start the render loop
+    if (!loopStarted) {
+        loopStarted = true;
+        console.log('[Palomar] source canvas ready, spectrumHeight =', sp.spectrumHeight, '— starting loop');
+        resize();
+        requestAnimationFrame(loop);
+    }
+}
+
+function loop() {
+    if (!paused) {
+        resize();
+        // Sync live state from radio.js each frame
+        if (typeof window.frequencyHz !== 'undefined') {
+            const rKhz = window.frequencyHz/1000;
+            const cKhz = window.centerHz/1000;
+            const sKhz = window.spanHz/1000;
+            if (Math.abs(rKhz-tuneKhz)>.5 || Math.abs(cKhz-centerKhz)>.5 || Math.abs(sKhz-spanKhz)>.5) {
+                tuneKhz = rKhz; centerKhz = cKhz; spanKhz = sKhz;
+                updateFDisp(); buildDX();
+            }
+        }
+        renderFromSource();
+    }
+    frame++;
+    if (frame%8===0)  tickSM();
+    if (frame%60===0) updateClock();
+    requestAnimationFrame(loop);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// CONTROLS
+// ═══════════════════════════════════════════════════════════════════
+function rjsTune(khz) {
+    tuneKhz = khz;
+    const inp = document.getElementById('freq');
+    if (inp) {
+        inp.value = khz.toFixed(3);
+        if (typeof window.setFrequencyW === 'function') window.setFrequencyW();
+    }
+    updateFDisp();
+}
+function rjsMode(mode) {
+    curMode = mode;
+    if (typeof window.setMode === 'function') window.setMode(mode);
+    drawScale(); updatePB();
+}
+function getStep() {
+    const s = $('p-step').value;
+    if (s.includes('MHz')) return parseFloat(s)*1000;
+    if (/khz/i.test(s)) return parseFloat(s);
+    return parseFloat(s)/1000;
+}
+
+$('p-set').onclick = ()=>{ const v=parseFloat($('p-fin').value); if(!isNaN(v)) rjsTune(v); };
+$('p-fin').addEventListener('keydown', e=>{ if(e.key==='Enter'){ const v=parseFloat($('p-fin').value); if(!isNaN(v)) rjsTune(v); }});
+$('p-dn').onclick = ()=>rjsTune(Math.max(1, tuneKhz-getStep()));
+$('p-up').onclick = ()=>rjsTune(tuneKhz+getStep());
+
+document.querySelectorAll('#p-inner [data-mode]').forEach(btn=>{
+    btn.onclick = ()=>{
+        document.querySelectorAll('#p-inner [data-mode]').forEach(b=>b.classList.remove('sel'));
+        btn.classList.add('sel'); rjsMode(btn.dataset.mode);
+    };
+});
+
+$('p-band').onchange = function(){ const v=parseFloat(this.value); if(!isNaN(v)&&v>0) rjsTune(v); this.value=''; };
+
+$('p-zo').onclick  = ()=>{ if(typeof window.zoomout==='function') window.zoomout(); };
+$('p-zi').onclick  = ()=>{ if(typeof window.zoomin==='function')  window.zoomin();  };
+$('p-pl').onclick  = ()=>{ centerKhz-=spanKhz*.2; buildDX(); drawScale(); updatePB(); };
+$('p-pr').onclick  = ()=>{ centerKhz+=spanKhz*.2; buildDX(); drawScale(); updatePB(); };
+$('p-ctr').onclick = ()=>{ if(typeof window.zoomcenter==='function') window.zoomcenter(); };
+
+$('p-aud').onclick = function(){
+    this.classList.toggle('sel');
+    if (typeof window.audio_start_stop==='function') window.audio_start_stop();
+};
+$('p-vol').oninput = function(){
+    $('p-volv').textContent = this.value;
+    if (typeof window.setPlayerVolume==='function') window.setPlayerVolume(+this.value/100);
+};
+$('p-wfmax').oninput = function(){ $('p-wfmaxv').textContent=this.value; };
+$('p-wfmin').oninput = function(){ $('p-wfminv').textContent=this.value; };
+$('p-spmax').oninput = function(){ sc=+this.value; $('p-spmaxv').textContent=sc; buildDbLabels(); };
+$('p-spmin').oninput = function(){ sf=+this.value; $('p-spminv').textContent=sf; buildDbLabels(); };
+$('p-run').onclick  = function(){
+    paused=!paused; this.textContent=paused?'⏸ Paused':'▶ Run';
+    if(paused) this.classList.remove('sel'); else this.classList.add('sel');
+};
+
+$('p-tbar-arr').onclick = ()=>{
+    const closed = $('p-tbar').classList.toggle('closed');
+    $('p-tbar-arr').textContent = closed?'▼':'▲';
+    $('p-panel').classList.toggle('fullh',closed);
+    setTimeout(resize,180);
+};
+$('p-vis').onclick = ()=>{
+    const c = $('p-panel').classList.toggle('collapsed');
+    $('p-vis').textContent = c?'▶':'◀';
+    setTimeout(resize,20);
+};
+
+// ── Diagnostics ───────────────────────────────────────────────────
+const DIAG = {
+    'Tune':      ()=>typeof window.frequencyHz!=='undefined'?(window.frequencyHz/1e6).toFixed(6)+' MHz':'—',
+    'RF Gain':   ()=>window.rf_gain!==undefined?window.rf_gain.toFixed(1)+' dB':'—',
+    'RF Atten':  ()=>window.rf_atten!==undefined?window.rf_atten.toFixed(1)+' dB':'—',
+    'RF AGC':    ()=>window.rf_agc!==undefined?(window.rf_agc==1?'enabled':'disabled'):'—',
+    'A/D':       ()=>window.if_power!==undefined?window.if_power.toFixed(1)+' dBFS':'—',
+    'SSRC':      ()=>window.ssrc!==undefined?window.ssrc:'—',
+    'Bins':      ()=>window.binCount!==undefined?window.binCount.toLocaleString():'1,620',
+    'Bin width': ()=>window.binWidthHz!==undefined?window.binWidthHz.toLocaleString()+' Hz':'—',
+    'Overranges':()=>window.ad_over!==undefined?window.ad_over.toLocaleString():'—',
+    'N₀':        ()=>window.noise_density_audio!==undefined?window.noise_density_audio.toFixed(1)+' dBm/Hz':'—',
+    'Zoom':      ()=>{ try{return document.getElementById('zoom_level').value;}catch(e){return '—';} },
+    'Span':      ()=>`${((centerKhz-spanKhz/2)/1000).toFixed(3)}–${((centerKhz+spanKhz/2)/1000).toFixed(3)} MHz`,
+    'specH':     ()=>window.spectrum?window.spectrum.spectrumHeight:'—',
+    'srcSize':   ()=>_src?`${_src.width}×${_src.height}`:'waiting…',
+};
+function updateDiag() {
+    if (!diagOpen) return;
+    const grid = $('p-dg-grid'); grid.innerHTML='';
+    for (const [l,fn] of Object.entries(DIAG)) {
+        const le=document.createElement('span'); le.style.cssText='color:#aaa;white-space:nowrap'; le.textContent=l+':';
+        const ve=document.createElement('span'); ve.style.cssText='color:#eee;white-space:nowrap'; ve.textContent=fn();
+        grid.appendChild(le); grid.appendChild(ve);
+    }
+    const wwv = document.getElementById('wwv_solar');
+    if (wwv && wwv.textContent) $('p-dg-solar').textContent = wwv.textContent;
+}
+setInterval(updateDiag, 2000);
+$('p-dg-hdr').onclick = ()=>{
+    diagOpen=!diagOpen;
+    $('p-dg-body').style.display=diagOpen?'block':'none';
+    $('p-dg-arr').textContent=diagOpen?'hide':'show';
+    $('p-dg-title').textContent=(diagOpen?'▾':'▸')+' RADIO STATUS';
+    if(diagOpen) updateDiag();
+};
+
+// ── Mouse interactions on overlay canvases ────────────────────────
+let drag = null;
+[$('p-wf'),$('p-sp'),$('p-sc')].forEach(cv=>{
+    cv.style.pointerEvents='all'; cv.style.cursor='crosshair';
+    cv.addEventListener('mousedown',e=>{
+        if(e.button!==0) return;
+        drag={sx:e.clientX,sc0:centerKhz,moved:false}; cv.style.cursor='grabbing';
+    });
+    cv.addEventListener('mousemove',e=>{
+        const r=cv.getBoundingClientRect();
+        const f=(centerKhz-spanKhz/2)+((e.clientX-r.left)/r.width)*spanKhz;
+        const tip=$('p-tip'), wr=$('p-wf-wrap').getBoundingClientRect();
+        tip.style.display='block';
+        tip.style.left=Math.min(e.clientX-wr.left+8,wr.width-90)+'px';
+        tip.textContent=(f/1000).toFixed(4)+' MHz';
+        if(!drag) return;
+        const dx=e.clientX-drag.sx;
+        if(!drag.moved&&Math.abs(dx)>3) drag.moved=true;
+        if(drag.moved){ centerKhz=drag.sc0-(dx/r.width)*spanKhz; buildDX(); drawScale(); updatePB(); }
+    });
+    cv.addEventListener('mouseup',e=>{
+        if(e.button!==0||!drag) return;
+        if(!drag.moved){ const r=cv.getBoundingClientRect(); rjsTune((centerKhz-spanKhz/2)+((e.clientX-r.left)/r.width)*spanKhz); }
+        drag=null; cv.style.cursor='crosshair';
+    });
+    cv.addEventListener('mouseleave',()=>{ $('p-tip').style.display='none'; if(drag){drag=null;cv.style.cursor='crosshair';} });
+    cv.addEventListener('wheel',e=>{
+        e.preventDefault();
+        const r=cv.getBoundingClientRect();
+        const mf=(centerKhz-spanKhz/2)+((e.clientX-r.left)/r.width)*spanKhz;
+        spanKhz=Math.max(ZOOMS[ZOOMS.length-1],Math.min(ZOOMS[0],spanKhz*(e.deltaY>0?1.3:1/1.3)));
+        centerKhz=mf+(0.5-(e.clientX-r.left)/r.width)*spanKhz;
+        buildDX(); drawScale(); updatePB();
+    },{passive:false});
+});
+
+window.addEventListener('resize', resize);
+updateClock(); setInterval(updateClock,1000);
+
+// Kick off the readiness poll — loop starts only once conditions are met
+waitForReady();
+
+})();
