@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Palomar SDR — Custom UI
 // @namespace    https://palomar-sdr.com/
-// @version      0.9.4
+// @version      0.9.5
 // @description  KiwiSDR-style overlay UI for palomar-sdr.com/radio.html
 // @author       WA2N / WA2ZKD
 // @match        https://palomar-sdr.com/radio.html
@@ -73,17 +73,6 @@ OV.innerHTML = `
   font-family:"DejaVu Sans",Verdana,Geneva,sans-serif;
   font-size:13px;background:#000;color:#fff;overflow:hidden;
 }
-#p-tbar{
-  flex-shrink:0;height:48px;background:#ececec;
-  display:flex;align-items:center;padding:0 8px;gap:10px;
-  overflow:hidden;transition:height .15s;
-}
-#p-tbar.closed{height:0}
-#p-title{font-size:11pt;font-weight:bold;color:#909090;white-space:nowrap}
-#p-desc{font-size:9pt;color:#909090;white-space:nowrap}
-#p-ident{font-size:85%;color:#909090;margin-left:auto;white-space:nowrap}
-#p-tbar-arr{cursor:pointer;color:#909090;padding:0 6px;user-select:none;flex-shrink:0;font-size:16px}
-#p-tbar-arr:hover{color:#555}
 #p-rf{flex:1;position:relative;min-height:0;display:flex;flex-direction:column}
 #p-sp-wrap{height:140px;flex-shrink:0;background:#000;position:relative;cursor:crosshair}
 #p-sp{display:block;width:100%;height:100%}
@@ -111,13 +100,12 @@ OV.innerHTML = `
 .p-dxt{position:absolute;font-size:10px;padding:1px 3px;border:1px solid #000;
   border-radius:3px;background:rgba(255,255,220,.85);color:#000;white-space:nowrap;top:1px}
 #p-panel{
-  position:fixed;right:0;top:48px;bottom:0;
+  position:fixed;right:0;top:0;bottom:0;
   display:flex;flex-direction:row;
   background:#575757;color:#fff;font-size:85%;
   border-radius:15px 0 0 15px;overflow:visible;
-  z-index:2147483647;transition:top .15s;
+  z-index:2147483647;
 }
-#p-panel.fullh{top:0}
 #p-panel.collapsed{background:transparent}
 #p-panel.collapsed #p-inner{width:0;padding:0;overflow:hidden}
 #p-vis{
@@ -190,15 +178,6 @@ input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;bac
 #p-clk{font-size:11px;color:#aaa}
 #p-badge{display:inline-block;background:#3a1500;border:1px solid #8a4500;color:#dd8800;font-size:9px;padding:1px 5px;border-radius:3px;margin-top:3px}
 </style>
-
-<div id="p-tbar">
-  <div style="display:flex;flex-direction:column">
-    <div id="p-title">Palomar SDR</div>
-    <div id="p-desc">palomar-sdr.com · 0–30 MHz · WA2N / WA2ZKD</div>
-  </div>
-  <div id="p-ident">00:00:00 UTC</div>
-  <div id="p-tbar-arr">▲</div>
-</div>
 
 <div id="p-rf">
   <div id="p-sp-wrap"><div id="p-sp-db"></div><canvas id="p-sp"></canvas></div>
@@ -596,7 +575,7 @@ function tickSM() {
 function updateClock() {
     const n = new Date(), p = v => String(v).padStart(2,'0');
     const s = `${p(n.getUTCHours())}:${p(n.getUTCMinutes())}:${p(n.getUTCSeconds())} UTC`;
-    $('p-clk').textContent = s; $('p-ident').textContent = s;
+    $('p-clk').textContent = s;
 }
 
 function updateFDisp() {
@@ -776,12 +755,6 @@ $('p-run').onclick  = function(){
     if(paused) this.classList.remove('sel'); else this.classList.add('sel');
 };
 
-$('p-tbar-arr').onclick = ()=>{
-    const closed = $('p-tbar').classList.toggle('closed');
-    $('p-tbar-arr').textContent = closed?'▼':'▲';
-    $('p-panel').classList.toggle('fullh',closed);
-    setTimeout(resize,180);
-};
 $('p-vis').onclick = ()=>{
     const c = $('p-panel').classList.toggle('collapsed');
     $('p-vis').textContent = c?'▶':'◀';
