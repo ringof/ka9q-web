@@ -608,8 +608,8 @@ function waitForReady() {
 function loop() {
     if (!paused) {
         resize();
-        // Sync live state from radio.js each frame
-        if (typeof window.frequencyHz !== 'undefined') {
+        // Sync live state from radio.js each frame (skip during active pan)
+        if (typeof window.frequencyHz !== 'undefined' && !_panSuppressSync) {
             const rKhz = window.frequencyHz/1000;
             const cKhz = window.centerHz/1000;
             const sKhz = (window.spectrum ? window.spectrum.spanHz : 0)/1000;
@@ -666,8 +666,8 @@ $('p-band').onchange = function(){ const v=parseFloat(this.value); if(!isNaN(v)&
 
 $('p-zo').onclick  = ()=>{ if(typeof window.zoomout==='function') window.zoomout(); };
 $('p-zi').onclick  = ()=>{ if(typeof window.zoomin==='function')  window.zoomin();  };
-$('p-pl').onclick  = ()=>{ centerKhz-=spanKhz*.2; buildDX(); drawScale(); updatePB(); };
-$('p-pr').onclick  = ()=>{ centerKhz+=spanKhz*.2; buildDX(); drawScale(); updatePB(); };
+$('p-pl').onclick  = ()=>{ centerKhz-=spanKhz*.2; sendCenter(centerKhz); buildDX(); drawScale(); updatePB(); };
+$('p-pr').onclick  = ()=>{ centerKhz+=spanKhz*.2; sendCenter(centerKhz); buildDX(); drawScale(); updatePB(); };
 $('p-ctr').onclick = ()=>{ if(typeof window.zoomcenter==='function') window.zoomcenter(); };
 
 $('p-aud').onclick = function(){
@@ -736,40 +736,122 @@ $('p-dg-hdr').onclick = ()=>{
     if(diagOpen) updateDiag();
 };
 
-// ── Mouse interactions on overlay canvases ────────────────────────
+// ── Mouse / trackpad interactions on overlay canvases ─────────────
+// Pan:  press-and-drag (mouse or trackpad click-drag)
+//       horizontal two-finger scroll (trackpad deltaX)
+// Zoom: mouse wheel, trackpad pinch (ctrlKey + wheel), two-finger
+//       vertical scroll
+// Click: tune to the clicked frequency
+// ──────────────────────────────────────────────────────────────────
 let drag = null;
-[$('p-wf'),$('p-sp'),$('p-sc')].forEach(cv=>{
-    cv.style.pointerEvents='all'; cv.style.cursor='crosshair';
-    cv.addEventListener('mousedown',e=>{
-        if(e.button!==0) return;
-        drag={sx:e.clientX,sc0:centerKhz,moved:false}; cv.style.cursor='grabbing';
+let _panSuppressSync = false;   // block loop() center sync during drag
+let _lastPanSend = 0;
+const PAN_SEND_MS = 50;        // throttle Z:c: sends during drag
+
+let _zoomAccum = 0;            // accumulate small pinch deltas
+let _zoomTimer = null;
+
+// Send a center-frequency command to the backend + update spectrum
+function sendCenter(khz) {
+    try {
+        if (typeof ws !== 'undefined' && ws && ws.readyState === WebSocket.OPEN)
+            ws.send('Z:c:' + khz.toFixed(3));
+    } catch (e) { /* ws not accessible */ }
+    if (window.spectrum && typeof window.spectrum.setCenterHz === 'function')
+        window.spectrum.setCenterHz(khz * 1000);
+}
+
+[$('p-wf'),$('p-sp'),$('p-sc')].forEach(cv => {
+    cv.style.pointerEvents = 'all'; cv.style.cursor = 'crosshair';
+
+    // ── mousedown: start drag ────────────────────────────────────
+    cv.addEventListener('mousedown', e => {
+        if (e.button !== 0) return;
+        drag = { sx: e.clientX, sc0: centerKhz, moved: false, cv: cv };
+        cv.style.cursor = 'grabbing';
     });
-    cv.addEventListener('mousemove',e=>{
-        const r=cv.getBoundingClientRect();
-        const f=(centerKhz-spanKhz/2)+((e.clientX-r.left)/r.width)*spanKhz;
-        const tip=$('p-tip'), wr=$('p-wf-wrap').getBoundingClientRect();
-        tip.style.display='block';
-        tip.style.left=Math.min(e.clientX-wr.left+8,wr.width-90)+'px';
-        tip.textContent=(f/1000).toFixed(4)+' MHz';
-        if(!drag) return;
-        const dx=e.clientX-drag.sx;
-        if(!drag.moved&&Math.abs(dx)>3) drag.moved=true;
-        if(drag.moved){ centerKhz=drag.sc0-(dx/r.width)*spanKhz; buildDX(); drawScale(); updatePB(); }
+
+    // ── mousemove on canvas: tooltip only ────────────────────────
+    cv.addEventListener('mousemove', e => {
+        const r  = cv.getBoundingClientRect();
+        const f  = (centerKhz - spanKhz/2) + ((e.clientX - r.left) / r.width) * spanKhz;
+        const tip = $('p-tip'), wr = $('p-wf-wrap').getBoundingClientRect();
+        tip.style.display = 'block';
+        tip.style.left = Math.min(e.clientX - wr.left + 8, wr.width - 90) + 'px';
+        tip.textContent = (f / 1000).toFixed(4) + ' MHz';
     });
-    cv.addEventListener('mouseup',e=>{
-        if(e.button!==0||!drag) return;
-        if(!drag.moved){ const r=cv.getBoundingClientRect(); rjsTune((centerKhz-spanKhz/2)+((e.clientX-r.left)/r.width)*spanKhz); }
-        drag=null; cv.style.cursor='crosshair';
-    });
-    cv.addEventListener('mouseleave',()=>{ $('p-tip').style.display='none'; if(drag){drag=null;cv.style.cursor='crosshair';} });
-    cv.addEventListener('wheel',e=>{
+
+    cv.addEventListener('mouseleave', () => { $('p-tip').style.display = 'none'; });
+
+    // ── wheel: zoom or horizontal pan ────────────────────────────
+    cv.addEventListener('wheel', e => {
         e.preventDefault();
-        const r=cv.getBoundingClientRect();
-        const mf=(centerKhz-spanKhz/2)+((e.clientX-r.left)/r.width)*spanKhz;
-        spanKhz=Math.max(ZOOMS[ZOOMS.length-1],Math.min(ZOOMS[0],spanKhz*(e.deltaY>0?1.3:1/1.3)));
-        centerKhz=mf+(0.5-(e.clientX-r.left)/r.width)*spanKhz;
+
+        // Horizontal two-finger scroll → pan
+        if (!e.ctrlKey && Math.abs(e.deltaX) > Math.abs(e.deltaY) * 0.5
+                       && Math.abs(e.deltaX) > 2) {
+            const r = cv.getBoundingClientRect();
+            centerKhz += (e.deltaX / r.width) * spanKhz * 0.5;
+            sendCenter(centerKhz);
+            buildDX(); drawScale(); updatePB();
+            return;
+        }
+
+        // Vertical scroll / pinch → zoom via backend zoomin/zoomout
+        // Normalize deltaY: deltaMode 1 = lines (~30 px each)
+        let dy = e.deltaY;
+        if (e.deltaMode === 1) dy *= 30;
+        _zoomAccum += dy;
+
+        // Immediate trigger for large deltas (mouse wheel notch)
+        if (Math.abs(_zoomAccum) >= 40) {
+            if (_zoomAccum > 0 && typeof window.zoomout === 'function') window.zoomout();
+            else if (_zoomAccum < 0 && typeof window.zoomin === 'function') window.zoomin();
+            _zoomAccum = 0;
+            if (_zoomTimer) { clearTimeout(_zoomTimer); _zoomTimer = null; }
+            return;
+        }
+        // Deferred trigger for small deltas (trackpad pinch)
+        if (!_zoomTimer) {
+            _zoomTimer = setTimeout(() => {
+                if (_zoomAccum > 5 && typeof window.zoomout === 'function') window.zoomout();
+                else if (_zoomAccum < -5 && typeof window.zoomin === 'function') window.zoomin();
+                _zoomAccum = 0;
+                _zoomTimer = null;
+            }, 120);
+        }
+    }, { passive: false });
+});
+
+// ── window-level drag (pan) handlers ─────────────────────────────
+// Attached to window so the drag continues even if the pointer
+// leaves the canvas (important for trackpad press-and-drag).
+window.addEventListener('mousemove', e => {
+    if (!drag) return;
+    const r  = drag.cv.getBoundingClientRect();
+    const dx = e.clientX - drag.sx;
+    if (!drag.moved && Math.abs(dx) > 3) { drag.moved = true; _panSuppressSync = true; }
+    if (drag.moved) {
+        centerKhz = drag.sc0 - (dx / r.width) * spanKhz;
+        const now = Date.now();
+        if (now - _lastPanSend >= PAN_SEND_MS) {
+            sendCenter(centerKhz);
+            _lastPanSend = now;
+        }
         buildDX(); drawScale(); updatePB();
-    },{passive:false});
+    }
+});
+window.addEventListener('mouseup', e => {
+    if (e.button !== 0 || !drag) return;
+    if (!drag.moved) {
+        const r = drag.cv.getBoundingClientRect();
+        rjsTune((centerKhz - spanKhz/2) + ((e.clientX - r.left) / r.width) * spanKhz);
+    } else {
+        sendCenter(centerKhz);
+        _panSuppressSync = false;
+    }
+    drag.cv.style.cursor = 'crosshair';
+    drag = null;
 });
 
 window.addEventListener('resize', resize);
