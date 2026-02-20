@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Palomar SDR — Custom UI
 // @namespace    https://palomar-sdr.com/
-// @version      0.9.8
+// @version      0.9.9
 // @description  KiwiSDR-style overlay UI for palomar-sdr.com/radio.html
 // @author       W1EUJ
 // @match        https://palomar-sdr.com/radio.html
@@ -266,7 +266,7 @@ input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;bac
       <div class="p-sl"><span class="p-sll">Sp max</span><input type="range" id="p-spmax" min="-160" max="0" value="-30"><span class="p-slv" id="p-spmaxv">-30</span></div>
       <div class="p-sl"><span class="p-sll">Sp min</span><input type="range" id="p-spmin" min="-160" max="0" value="-130"><span class="p-slv" id="p-spminv">-130</span></div>
       <div class="br" style="margin-top:3px">
-        <button class="cb" id="p-sp-col">COL</button>
+        <button class="cb" id="p-sp-col">Color</button>
         <button class="cb" id="p-sp-auto">Auto</button>
         <button class="wb sel" id="p-run">▶ Run</button>
       </div>
@@ -783,9 +783,9 @@ $('p-sp-col').onclick = function(){
     const next = ((sp.colorindex || 0) + 1) % CM_NAMES.length;
     sp.setColormap(next);
     this.textContent = CM_NAMES[next];
-    // Reset label back to "COL" after 1.5 s
+    // Reset label back to "Color" after 1.5 s
     clearTimeout(this._t);
-    this._t = setTimeout(()=>{ this.textContent = 'COL'; }, 1500);
+    this._t = setTimeout(()=>{ this.textContent = 'Color'; }, 1500);
 };
 
 // ── Autoscale ────────────────────────────────────────────────────
