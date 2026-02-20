@@ -266,7 +266,7 @@ input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;bac
       <div class="p-sl"><span class="p-sll">Sp max</span><input type="range" id="p-spmax" min="-160" max="0" value="-30"><span class="p-slv" id="p-spmaxv">-30</span></div>
       <div class="p-sl"><span class="p-sll">Sp min</span><input type="range" id="p-spmin" min="-160" max="0" value="-130"><span class="p-slv" id="p-spminv">-130</span></div>
       <div class="br" style="margin-top:3px">
-        <button class="cb">COL</button>
+        <button class="cb" id="p-sp-col">COL</button>
         <button class="cb" id="p-sp-auto">Auto</button>
         <button class="wb sel" id="p-run">▶ Run</button>
       </div>
@@ -754,6 +754,24 @@ $('p-run').onclick  = function(){
     paused=!paused; this.textContent=paused?'⏸ Paused':'▶ Run';
     if(paused) this.classList.remove('sel'); else this.classList.add('sel');
 };
+// ── Colormap cycle ───────────────────────────────────────────────
+// colormaps[] is defined in colormap.js: turbo, fosphor, viridis,
+// inferno, magma, jet, binary, blue, short, kiwi (index 0–9).
+// We use setColormap() instead of toggleColor() because toggleColor()
+// tries to update a "colormap" <select> element that doesn't exist
+// in this panel.
+const CM_NAMES = ['turbo','fosphor','viridis','inferno','magma','jet','binary','blue','short','kiwi'];
+$('p-sp-col').onclick = function(){
+    const sp = window.spectrum;
+    if (!sp || typeof sp.setColormap !== 'function') return;
+    const next = ((sp.colorindex || 0) + 1) % CM_NAMES.length;
+    sp.setColormap(next);
+    this.textContent = CM_NAMES[next];
+    // Reset label back to "COL" after 1.5 s
+    clearTimeout(this._t);
+    this._t = setTimeout(()=>{ this.textContent = 'COL'; }, 1500);
+};
+
 // ── Autoscale ────────────────────────────────────────────────────
 // spectrum.js has its own forceAutoscale() but it runs asynchronously
 // across several addData() frames and updates its own DOM elements
