@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Palomar SDR — Custom UI
 // @namespace    https://palomar-sdr.com/
-// @version      0.7.4
+// @version      0.7.5
 // @description  KiwiSDR-style overlay UI for palomar-sdr.com/radio.html
 // @author       WA2N / WA2ZKD
 // @match        https://palomar-sdr.com/radio.html
@@ -221,16 +221,14 @@ input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;bac
     <div class="p-s">Frequency</div>
     <input id="p-fin" value="14225.000" placeholder="kHz — Enter">
     <div class="br">
-      <select class="ps" id="p-step" style="flex:1.5">
+      <button class="cb" id="p-dn" style="flex:0;padding:4px 8px">&lt;</button>
+      <button class="cb" id="p-up" style="flex:0;padding:4px 8px">&gt;</button>
+      <select class="ps" id="p-step" style="flex:1">
         <option>1 Hz</option><option>10 Hz</option><option>100 Hz</option>
         <option>500 Hz</option><option selected>1 kHz</option>
         <option>5 kHz</option><option>10 kHz</option>
         <option>100 kHz</option><option>1 MHz</option>
       </select>
-    </div>
-    <div class="br">
-      <button class="cb" id="p-dn">− Step</button>
-      <button class="cb" id="p-up">+ Step</button>
     </div>
 
     <hr class="p-hr">
