@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Palomar SDR — Custom UI
 // @namespace    https://palomar-sdr.com/
-// @version      0.9.7
+// @version      0.9.8
 // @description  KiwiSDR-style overlay UI for palomar-sdr.com/radio.html
 // @author       W1EUJ
 // @match        https://palomar-sdr.com/radio.html
@@ -719,10 +719,26 @@ $('p-fnum').addEventListener('keydown', e=>{
   if(e.key==='Enter'){ e.preventDefault(); const v=parseFloat($('p-fnum').value); if(!isNaN(v)){ rjsTune(v); $('p-fnum').blur(); } }
   if(e.key==='Escape'){ $('p-fnum').blur(); }
 });
-$('p-dn').onclick = ()=>rjsTune(Math.max(1, tuneKhz-getStep()));
-$('p-up').onclick = ()=>rjsTune(tuneKhz+getStep());
-$('p-dn2').onclick = ()=>rjsTune(Math.max(1, tuneKhz-getBigStep()));
-$('p-up2').onclick = ()=>rjsTune(tuneKhz+getBigStep());
+// Step and snap: round to the nearest step-grid boundary in the
+// direction of travel.  E.g. 10000.517 + 1 kHz → 10001.000,
+//                            10000.517 − 1 kHz → 10000.000.
+// If already exactly on a grid line, move one full step.
+function stepSnap(freq, step, dir) {          // dir: +1 or -1
+    // Use a small epsilon to avoid floating-point false-positives
+    const eps = step * 1e-9;
+    if (dir > 0) {
+        const next = Math.ceil(freq / step + eps) * step;
+        // If ceil didn't actually move us, add one step
+        return (next - freq < eps) ? next + step : next;
+    } else {
+        const prev = Math.floor(freq / step - eps) * step;
+        return (freq - prev < eps) ? prev - step : prev;
+    }
+}
+$('p-dn').onclick  = ()=>rjsTune(Math.max(1, stepSnap(tuneKhz, getStep(),    -1)));
+$('p-up').onclick  = ()=>rjsTune(stepSnap(tuneKhz, getStep(),    +1));
+$('p-dn2').onclick = ()=>rjsTune(Math.max(1, stepSnap(tuneKhz, getBigStep(), -1)));
+$('p-up2').onclick = ()=>rjsTune(stepSnap(tuneKhz, getBigStep(), +1));
 
 document.querySelectorAll('#p-inner [data-mode]').forEach(btn=>{
     btn.onclick = ()=>{
