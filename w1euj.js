@@ -97,9 +97,9 @@ OV.innerHTML = `
 #p-tunelbl{position:absolute;top:1px;font-size:10px;font-weight:bold;color:#000;white-space:nowrap;pointer-events:none;z-index:4;transform:translateX(-50%)}
 #p-sc-wrap{height:30px;position:relative;background:linear-gradient(to bottom,#c8c8c8,#e8e8e8,#c8c8c8)}
 #p-sc{display:block;width:100%;height:100%}
-.p-pb-cf{position:absolute;top:0;height:100%;background:rgba(255,255,0,.18);z-index:1}
-.p-pb-cut{position:absolute;top:0;height:100%;width:5px;background:rgba(255,200,0,.5);z-index:2}
-.p-pb-car{position:absolute;top:0;height:100%;width:2px;background:rgba(255,255,0,.9);z-index:3}
+.p-pb-cf{position:absolute;top:0;height:100%;background:rgba(80,200,80,.18);z-index:1}
+.p-pb-cut{position:absolute;top:0;height:100%;width:5px;background:rgba(60,180,60,.5);z-index:2}
+.p-pb-car{position:absolute;top:0;height:100%;width:2px;background:rgba(80,220,80,.9);z-index:3}
 #p-wf-wrap{flex:1;position:relative;min-height:0;background:#1e5f7f;overflow:hidden;cursor:crosshair}
 #p-wf{display:block;width:100%;height:100%;pointer-events:none}
 #p-tip{
