@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Palomar SDR — Custom UI
 // @namespace    https://palomar-sdr.com/
-// @version      0.9.3
+// @version      0.9.4
 // @description  KiwiSDR-style overlay UI for palomar-sdr.com/radio.html
 // @author       WA2N / WA2ZKD
 // @match        https://palomar-sdr.com/radio.html
@@ -222,13 +222,15 @@ input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;bac
     <div id="p-fdisp"><input id="p-fnum" value="—" readonly><span id="p-funit">kHz</span></div>
 
     <div class="br">
-      <button class="cb" id="p-dn" style="flex:0;padding:4px 8px">&lt;</button>
-      <button class="cb" id="p-up" style="flex:0;padding:4px 8px">&gt;</button>
-      <select class="ps" id="p-step" style="flex:1">
+      <button class="cb" id="p-dn2" style="flex:0;padding:4px 6px">&lt;&lt;</button>
+      <button class="cb" id="p-dn" style="flex:0;padding:4px 6px">&lt;</button>
+      <button class="cb" id="p-up" style="flex:0;padding:4px 6px">&gt;</button>
+      <button class="cb" id="p-up2" style="flex:0;padding:4px 6px">&gt;&gt;</button>
+      <select class="ps" id="p-step" style="flex:1;min-width:0">
         <option>1 Hz</option><option>10 Hz</option><option>100 Hz</option>
         <option>500 Hz</option><option selected>1 kHz</option>
         <option>5 kHz</option><option>10 kHz</option>
-        <option>100 kHz</option><option>1 MHz</option>
+        <option>100 kHz</option>
       </select>
     </div>
 
@@ -721,6 +723,16 @@ function getStep() {
     if (/khz/i.test(s)) return parseFloat(s);
     return parseFloat(s)/1000;
 }
+const _stepKhz = [.001,.01,.1,.5,1,5,10,100,1000];
+function getBigStep() {
+    const cur = getStep();
+    for (let i = 0; i < _stepKhz.length; i++) {
+        if (Math.abs(_stepKhz[i] - cur) < 1e-9) {
+            return (i < _stepKhz.length - 1) ? _stepKhz[i+1] : _stepKhz[i];
+        }
+    }
+    return cur;
+}
 
 $('p-fnum').addEventListener('focus', ()=>{ $('p-fnum').removeAttribute('readonly'); $('p-fnum').select(); });
 $('p-fnum').addEventListener('blur', ()=>{ $('p-fnum').setAttribute('readonly',''); $('p-fnum').value = tuneKhz.toFixed(3); });
@@ -730,6 +742,8 @@ $('p-fnum').addEventListener('keydown', e=>{
 });
 $('p-dn').onclick = ()=>rjsTune(Math.max(1, tuneKhz-getStep()));
 $('p-up').onclick = ()=>rjsTune(tuneKhz+getStep());
+$('p-dn2').onclick = ()=>rjsTune(Math.max(1, tuneKhz-getBigStep()));
+$('p-up2').onclick = ()=>rjsTune(tuneKhz+getBigStep());
 
 document.querySelectorAll('#p-inner [data-mode]').forEach(btn=>{
     btn.onclick = ()=>{
