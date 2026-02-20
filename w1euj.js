@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Palomar SDR — Custom UI
 // @namespace    https://palomar-sdr.com/
-// @version      0.7.5
+// @version      0.7.6
 // @description  KiwiSDR-style overlay UI for palomar-sdr.com/radio.html
 // @author       WA2N / WA2ZKD
 // @match        https://palomar-sdr.com/radio.html
@@ -131,9 +131,12 @@ OV.innerHTML = `
 }
 #p-inner::-webkit-scrollbar{width:5px}
 #p-inner::-webkit-scrollbar-thumb{background:#888}
-#p-fdisp{background:#000;border-radius:4px;padding:5px 8px;text-align:center;flex-shrink:0}
-#p-fnum{font:bold 30px/1 Consolas,monospace;color:#e8c000;letter-spacing:.02em;white-space:nowrap}
-#p-funit{font:9px Consolas;color:#a08000;letter-spacing:.1em;margin-top:1px}
+#p-fdisp{background:#000;border-radius:4px;padding:5px 8px;display:flex;align-items:baseline;justify-content:center;gap:4px;flex-shrink:0}
+#p-fnum{font:bold 30px/1 Consolas,monospace;color:#e8c000;letter-spacing:.02em;
+  background:transparent;border:none;outline:none;text-align:right;width:100%;cursor:pointer;padding:0}
+#p-fnum:focus{cursor:text;color:#fff}
+#p-fnum:read-only{color:#e8c000}
+#p-funit{font:bold 12px/1 sans-serif;color:#a08000;flex-shrink:0}
 .p-hr{border:none;border-top:3px solid #aaa;margin:4px 0}
 .p-s{font-size:80%;font-weight:bold;color:#ccc;margin-bottom:2px}
 .cb{
@@ -152,12 +155,6 @@ OV.innerHTML = `
 .wb.sel{background:#4CAF50!important;color:#fff}
 .br{display:flex;gap:3px;flex-wrap:wrap;align-items:center}
 .br .cb,.br .wb{flex:1;text-align:center}
-#p-fin{
-  background:#222;border:1px solid #888;color:#e8c000;
-  font:13px Consolas,monospace;padding:3px 6px;width:100%;
-  text-align:right;outline:none;border-radius:3px;
-}
-#p-fin:focus{border-color:#e8c000}
 select.ps{
   background:#444;border:1px solid #888;color:#fff;
   font:inherit;padding:3px 4px;cursor:pointer;outline:none;
@@ -216,10 +213,8 @@ input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;bac
 <div id="p-panel">
   <div id="p-vis">◀</div>
   <div id="p-inner">
-    <div id="p-fdisp"><div id="p-fnum">—</div><div id="p-funit">kHz</div></div>
+    <div id="p-fdisp"><input id="p-fnum" value="—" readonly><span id="p-funit">kHz</span></div>
 
-    <div class="p-s">Frequency</div>
-    <input id="p-fin" value="14225.000" placeholder="kHz — Enter">
     <div class="br">
       <button class="cb" id="p-dn" style="flex:0;padding:4px 8px">&lt;</button>
       <button class="cb" id="p-up" style="flex:0;padding:4px 8px">&gt;</button>
@@ -569,8 +564,7 @@ function updateClock() {
 }
 
 function updateFDisp() {
-    $('p-fnum').textContent = tuneKhz.toFixed(2);
-    $('p-fin').value = tuneKhz.toFixed(3);
+    if(document.activeElement !== $('p-fnum')) $('p-fnum').value = tuneKhz.toFixed(3);
     drawScale(); updatePB();
 }
 
@@ -647,7 +641,12 @@ function getStep() {
     return parseFloat(s)/1000;
 }
 
-$('p-fin').addEventListener('keydown', e=>{ if(e.key==='Enter'){ const v=parseFloat($('p-fin').value); if(!isNaN(v)) rjsTune(v); }});
+$('p-fnum').addEventListener('focus', ()=>{ $('p-fnum').removeAttribute('readonly'); $('p-fnum').select(); });
+$('p-fnum').addEventListener('blur', ()=>{ $('p-fnum').setAttribute('readonly',''); $('p-fnum').value = tuneKhz.toFixed(3); });
+$('p-fnum').addEventListener('keydown', e=>{
+  if(e.key==='Enter'){ e.preventDefault(); const v=parseFloat($('p-fnum').value); if(!isNaN(v)){ rjsTune(v); $('p-fnum').blur(); } }
+  if(e.key==='Escape'){ $('p-fnum').blur(); }
+});
 $('p-dn').onclick = ()=>rjsTune(Math.max(1, tuneKhz-getStep()));
 $('p-up').onclick = ()=>rjsTune(tuneKhz+getStep());
 
