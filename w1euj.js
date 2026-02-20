@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Palomar SDR — Custom UI
 // @namespace    https://palomar-sdr.com/
-// @version      0.9.2
+// @version      0.9.3
 // @description  KiwiSDR-style overlay UI for palomar-sdr.com/radio.html
 // @author       WA2N / WA2ZKD
 // @match        https://palomar-sdr.com/radio.html
@@ -291,13 +291,6 @@ input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;bac
       </div>
     </div>
 
-    <hr class="p-hr">
-    <div class="p-s">Options</div>
-    <div class="br"><button class="cb">DX labels</button><button class="cb">Memories</button></div>
-    <div class="br" style="margin-top:3px"><button class="cb">Ext ▼</button><button class="cb">Help</button></div>
-
-    <div style="flex:1;min-height:8px"></div>
-
     <div id="p-dg-hdr">
       <span style="font-size:80%;font-weight:bold;color:#ccc" id="p-dg-title">▸ RADIO STATUS</span>
       <span style="font-size:10px;color:#999" id="p-dg-arr">show</span>
@@ -305,6 +298,13 @@ input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;bac
     <div id="p-dg-body">
       <div id="p-dg-grid"></div>
     </div>
+
+    <hr class="p-hr">
+    <div class="p-s">Options</div>
+    <div class="br"><button class="cb">DX labels</button><button class="cb">Memories</button></div>
+    <div class="br" style="margin-top:3px"><button class="cb">Ext ▼</button><button class="cb">Help</button></div>
+
+    <div style="flex:1;min-height:8px"></div>
 
     <div id="p-stat">
       <div id="p-clk">00:00:00 UTC</div>
