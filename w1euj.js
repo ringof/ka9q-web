@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Palomar SDR — Custom UI
 // @namespace    https://palomar-sdr.com/
-// @version      0.9.10
+// @version      0.9.11
 // @description  KiwiSDR-style overlay UI for palomar-sdr.com/radio.html
 // @author       W1EUJ
 // @match        https://palomar-sdr.com/radio.html
@@ -132,7 +132,7 @@ OV.innerHTML = `
 .p-hr{border:none;border-top:3px solid #aaa;margin:4px 0}
 .p-s{font-size:80%;font-weight:bold;color:#ccc;margin-bottom:2px}
 .cb{
-  display:inline-block;background:#373737;padding:3px 6px;border-radius:6px;
+  display:inline-block;background:#373737;padding:6px 6px;border-radius:6px;
   color:#fff;font-weight:bold;cursor:pointer;user-select:none;
   border:none;outline:none;white-space:nowrap;font-size:inherit;
 }
@@ -140,7 +140,7 @@ OV.innerHTML = `
 .cb.sel{background:#4CAF50!important;color:#fff}
 .wb{
   display:inline-block;background:hsl(0,0%,92%);color:#000;
-  padding:3px 6px;border-radius:6px;font-weight:bold;cursor:pointer;
+  padding:6px 6px;border-radius:6px;font-weight:bold;cursor:pointer;
   user-select:none;border:none;outline:none;white-space:nowrap;font-size:inherit;
 }
 .wb:hover{background:hsl(0,0%,82%)}
@@ -203,10 +203,10 @@ input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;bac
     <div id="p-fdisp"><input id="p-fnum" value="—" readonly><span id="p-funit">kHz</span></div>
 
     <div class="br">
-      <button class="cb" id="p-dn2" style="flex:0;padding:4px 6px">&lt;&lt;</button>
-      <button class="cb" id="p-dn" style="flex:0;padding:4px 6px">&lt;</button>
-      <button class="cb" id="p-up" style="flex:0;padding:4px 6px">&gt;</button>
-      <button class="cb" id="p-up2" style="flex:0;padding:4px 6px">&gt;&gt;</button>
+      <button class="cb" id="p-dn2" style="flex:0;padding:6px 6px">&lt;&lt;</button>
+      <button class="cb" id="p-dn" style="flex:0;padding:6px 6px">&lt;</button>
+      <button class="cb" id="p-up" style="flex:0;padding:6px 6px">&gt;</button>
+      <button class="cb" id="p-up2" style="flex:0;padding:6px 6px">&gt;&gt;</button>
       <select class="ps" id="p-step" style="flex:1;min-width:0">
         <option>1 Hz</option><option>10 Hz</option><option>100 Hz</option>
         <option>500 Hz</option><option selected>1 kHz</option>
