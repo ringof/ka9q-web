@@ -753,12 +753,18 @@ let _zoomTimer = null;
 
 // Send a center-frequency command to the backend + update spectrum
 function sendCenter(khz) {
+    let sent = false;
     try {
-        if (typeof ws !== 'undefined' && ws && ws.readyState === WebSocket.OPEN)
+        if (typeof ws !== 'undefined' && ws && ws.readyState === WebSocket.OPEN) {
             ws.send('Z:c:' + khz.toFixed(3));
-    } catch (e) { /* ws not accessible */ }
-    if (window.spectrum && typeof window.spectrum.setCenterHz === 'function')
-        window.spectrum.setCenterHz(khz * 1000);
+            sent = true;
+        }
+    } catch (e) {
+        console.warn('[overlay] sendCenter: ws not accessible', e);
+    }
+    const hasSCH = window.spectrum && typeof window.spectrum.setCenterHz === 'function';
+    if (hasSCH) window.spectrum.setCenterHz(khz * 1000);
+    console.log('[overlay] sendCenter', khz.toFixed(1), 'kHz  ws=' + sent, 'sCH=' + !!hasSCH);
 }
 
 [$('p-wf'),$('p-sp'),$('p-sc')].forEach(cv => {
@@ -786,12 +792,18 @@ function sendCenter(khz) {
     // ── wheel: zoom or horizontal pan ────────────────────────────
     cv.addEventListener('wheel', e => {
         e.preventDefault();
+        console.log('[overlay] wheel  dX=' + e.deltaX.toFixed(1),
+                     'dY=' + e.deltaY.toFixed(1),
+                     'mode=' + e.deltaMode,
+                     'ctrl=' + e.ctrlKey,
+                     'target=' + cv.id);
 
         // Horizontal two-finger scroll → pan
         if (!e.ctrlKey && Math.abs(e.deltaX) > Math.abs(e.deltaY) * 0.5
                        && Math.abs(e.deltaX) > 2) {
             const r = cv.getBoundingClientRect();
             centerKhz += (e.deltaX / r.width) * spanKhz * 0.5;
+            console.log('[overlay] → horiz pan', centerKhz.toFixed(1));
             sendCenter(centerKhz);
             buildDX(); drawScale(); updatePB();
             return;
@@ -805,6 +817,9 @@ function sendCenter(khz) {
 
         // Immediate trigger for large deltas (mouse wheel notch)
         if (Math.abs(_zoomAccum) >= 40) {
+            const fn = _zoomAccum > 0 ? 'zoomout' : 'zoomin';
+            console.log('[overlay] → immediate zoom:', fn,
+                        'avail=' + (typeof window[fn] === 'function'));
             if (_zoomAccum > 0 && typeof window.zoomout === 'function') window.zoomout();
             else if (_zoomAccum < 0 && typeof window.zoomin === 'function') window.zoomin();
             _zoomAccum = 0;
@@ -814,6 +829,7 @@ function sendCenter(khz) {
         // Deferred trigger for small deltas (trackpad pinch)
         if (!_zoomTimer) {
             _zoomTimer = setTimeout(() => {
+                console.log('[overlay] → deferred zoom accum=' + _zoomAccum.toFixed(1));
                 if (_zoomAccum > 5 && typeof window.zoomout === 'function') window.zoomout();
                 else if (_zoomAccum < -5 && typeof window.zoomin === 'function') window.zoomin();
                 _zoomAccum = 0;
@@ -830,7 +846,10 @@ window.addEventListener('mousemove', e => {
     if (!drag) return;
     const r  = drag.cv.getBoundingClientRect();
     const dx = e.clientX - drag.sx;
-    if (!drag.moved && Math.abs(dx) > 3) { drag.moved = true; _panSuppressSync = true; }
+    if (!drag.moved && Math.abs(dx) > 3) {
+        drag.moved = true; _panSuppressSync = true;
+        console.log('[overlay] drag started');
+    }
     if (drag.moved) {
         centerKhz = drag.sc0 - (dx / r.width) * spanKhz;
         const now = Date.now();
@@ -845,8 +864,11 @@ window.addEventListener('mouseup', e => {
     if (e.button !== 0 || !drag) return;
     if (!drag.moved) {
         const r = drag.cv.getBoundingClientRect();
-        rjsTune((centerKhz - spanKhz/2) + ((e.clientX - r.left) / r.width) * spanKhz);
+        const freq = (centerKhz - spanKhz/2) + ((e.clientX - r.left) / r.width) * spanKhz;
+        console.log('[overlay] click-tune', (freq/1000).toFixed(4), 'MHz');
+        rjsTune(freq);
     } else {
+        console.log('[overlay] drag end → final sendCenter', centerKhz.toFixed(1));
         sendCenter(centerKhz);
         _panSuppressSync = false;
     }
