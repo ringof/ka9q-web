@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Palomar SDR — Custom UI
 // @namespace    https://palomar-sdr.com/
-// @version      0.7.7
+// @version      0.7.8
 // @description  KiwiSDR-style overlay UI for palomar-sdr.com/radio.html
 // @author       WA2N / WA2ZKD
 // @match        https://palomar-sdr.com/radio.html
@@ -87,7 +87,7 @@ OV.innerHTML = `
 #p-sp-db{
   position:absolute;top:0;left:2px;bottom:14px;
   display:flex;flex-direction:column;justify-content:space-between;
-  pointer-events:none;font:8px Consolas,monospace;color:#3a3a3a;
+  pointer-events:none;font:8px inherit;color:#3a3a3a;
 }
 #p-tune-wrap{position:relative;flex-shrink:0}
 #p-dx-bar{height:18px;background:#f5f5f5;border-bottom:1px solid #ccc;position:relative;overflow:hidden}
@@ -101,7 +101,7 @@ OV.innerHTML = `
 #p-tip{
   position:absolute;display:none;pointer-events:none;
   background:#333;border:1px solid #666;color:#e8c000;
-  font:10px Consolas,monospace;padding:1px 5px;z-index:5;top:4px;
+  font-size:10px;padding:1px 5px;z-index:5;top:4px;
 }
 .p-dxl{position:absolute;width:1px;background:#000;top:0;bottom:0}
 .p-dxt{position:absolute;font-size:10px;padding:1px 3px;border:1px solid #000;
@@ -136,7 +136,7 @@ OV.innerHTML = `
   background:transparent;border:none;outline:none;text-align:right;width:100%;cursor:pointer;padding:0}
 #p-fnum:focus{cursor:text;color:#fff}
 #p-fnum:read-only{color:#e8c000}
-#p-funit{font:bold 12px/1 sans-serif;color:#a08000;flex-shrink:0}
+#p-funit{font-size:12px;font-weight:bold;line-height:1;color:#a08000;flex-shrink:0}
 .p-hr{border:none;border-top:3px solid #aaa;margin:4px 0}
 .p-s{font-size:80%;font-weight:bold;color:#ccc;margin-bottom:2px}
 .cb{
@@ -167,11 +167,11 @@ select.ps{
 }
 #p-smf{position:absolute;right:0;top:0;bottom:0;background:#575757;transition:width .06s;width:65%}
 .p-sms{display:flex;justify-content:space-between;padding:0 2px;margin-top:1px}
-.p-sms span{font:8px Consolas;color:#ccc}
-#p-smv{font:10px Consolas;color:#aaa;text-align:right;margin-top:1px}
+.p-sms span{font-size:8px;color:#ccc}
+#p-smv{font-size:10px;color:#aaa;text-align:right;margin-top:1px}
 .p-sl{display:flex;align-items:center;gap:5px;white-space:nowrap}
 .p-sll{font-size:85%;color:#ccc;width:50px;flex-shrink:0}
-.p-slv{font:9px Consolas;color:#aaa;width:28px;text-align:right;flex-shrink:0}
+.p-slv{font-size:9px;color:#aaa;width:28px;text-align:right;flex-shrink:0}
 input[type=range]{-webkit-appearance:none;height:22px;background:transparent;cursor:pointer;flex:1;min-width:0;outline:none}
 input[type=range]::-webkit-slider-runnable-track{height:3px;background:#808080;border-radius:1px}
 input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:#fff;border:1px solid #808080;cursor:pointer;margin-top:-7px}
@@ -179,11 +179,11 @@ input[type=range]::-moz-range-track{height:3px;background:#808080;border-radius:
 input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;background:#fff;border:1px solid #808080}
 #p-dg-hdr{display:flex;align-items:center;justify-content:space-between;cursor:pointer;padding:4px 2px;border-top:3px solid #aaa;user-select:none;margin-top:2px}
 #p-dg-body{display:none;margin-top:3px}
-#p-dg-grid{display:grid;grid-template-columns:auto 1fr;gap:1px 8px;background:#3a3a3a;border-radius:5px;padding:6px 8px;font:11px/1.6 Consolas,monospace}
-#p-dg-solar{margin-top:5px;padding:4px 8px;background:#3a3a3a;border-radius:5px;font:10px/1.4 Consolas,monospace;color:#dd0}
+#p-dg-grid{display:grid;grid-template-columns:auto 1fr;gap:1px 8px;background:#3a3a3a;border-radius:5px;padding:6px 8px;font-size:11px;line-height:1.6}
+#p-dg-solar{margin-top:5px;padding:4px 8px;background:#3a3a3a;border-radius:5px;font-size:10px;line-height:1.4;color:#dd0}
 #p-stat{flex-shrink:0;padding-top:5px;border-top:1px solid #888;margin-top:4px;font-size:80%;color:#bbb}
-#p-clk{font:11px Consolas;color:#aaa}
-#p-badge{display:inline-block;background:#3a1500;border:1px solid #8a4500;color:#dd8800;font:9px Arial;padding:1px 5px;border-radius:3px;margin-top:3px}
+#p-clk{font-size:11px;color:#aaa}
+#p-badge{display:inline-block;background:#3a1500;border:1px solid #8a4500;color:#dd8800;font-size:9px;padding:1px 5px;border-radius:3px;margin-top:3px}
 </style>
 
 <div id="p-tbar">
@@ -360,7 +360,7 @@ function syncFromRadio() {
         }
         updateFDisp();
         $('p-badge').textContent = 'live — connected';
-        $('p-badge').style.cssText = 'display:inline-block;background:#003a00;border:1px solid #007000;color:#44cc44;font:9px Arial;padding:1px 5px;border-radius:3px;margin-top:3px';
+        $('p-badge').style.cssText = 'display:inline-block;background:#003a00;border:1px solid #007000;color:#44cc44;font-size:9px;padding:1px 5px;border-radius:3px;margin-top:3px';
     } else {
         setTimeout(syncFromRadio, 500);
     }
@@ -495,7 +495,7 @@ function drawScale() {
     const lo = (centerKhz-spanKhz/2)/1000, hi = (centerKhz+spanKhz/2)/1000, range = hi-lo;
     const steps = [.001,.002,.005,.01,.02,.05,.1,.2,.5,1,2,5,10,15,20];
     let step = 1; for (const s of steps) { if (range/s <= 14) { step=s; break; } }
-    scCtx.font = '9px Arial'; scCtx.textAlign = 'center';
+    scCtx.font = '9px "DejaVu Sans",Verdana,Geneva,sans-serif'; scCtx.textAlign = 'center';
     for (let f = Math.ceil(lo/step)*step; f <= hi+step*.001; f += step) {
         const x = ((f-lo)/range)*W;
         scCtx.strokeStyle = 'rgba(0,0,0,.15)'; scCtx.lineWidth = 1;
@@ -504,7 +504,7 @@ function drawScale() {
         scCtx.fillText(step<1?(f*1000).toFixed(0)+' k':f.toFixed(step<.1?2:step<1?1:0), x, H-2);
     }
     const tx = ((tuneKhz/1000-lo)/range)*W;
-    scCtx.fillStyle = '#000'; scCtx.font = 'bold 9px Arial';
+    scCtx.fillStyle = '#000'; scCtx.font = 'bold 9px "DejaVu Sans",Verdana,Geneva,sans-serif';
     scCtx.fillText((tuneKhz/1000).toFixed(3)+' MHz', tx, 10);
 }
 
