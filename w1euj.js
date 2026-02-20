@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Palomar SDR — Custom UI
 // @namespace    https://palomar-sdr.com/
-// @version      0.7.0
+// @version      0.7.1
 // @description  KiwiSDR-style overlay UI for palomar-sdr.com/radio.html
 // @author       WA2N / WA2ZKD
 // @match        https://palomar-sdr.com/radio.html
@@ -128,6 +128,7 @@ OV.innerHTML = `
   display:flex;flex-direction:column;gap:5px;
   padding:10px 8px 10px 10px;
   scrollbar-width:thin;scrollbar-color:#777 #575757;
+  height:100%;box-sizing:border-box;
 }
 #p-inner::-webkit-scrollbar{width:5px}
 #p-inner::-webkit-scrollbar-thumb{background:#888}
