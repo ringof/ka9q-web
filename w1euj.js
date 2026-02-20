@@ -754,6 +754,14 @@ $('p-run').onclick  = function(){
     paused=!paused; this.textContent=paused?'⏸ Paused':'▶ Run';
     if(paused) this.classList.remove('sel'); else this.classList.add('sel');
 };
+// ── Autoscale ────────────────────────────────────────────────────
+// spectrum.js has its own forceAutoscale() but it runs asynchronously
+// across several addData() frames and updates its own DOM elements
+// (spectrum_min, waterfall_max, etc.) which don't exist in this panel.
+// Instead we read bin_copy directly and set the range in one shot.
+
+// Update all four panel sliders (Sp max/min, WF max/min), the local
+// sc/sf variables, and spectrum.js's internal dB range in one call.
 function setSlidersAndRange(newMax, newMin){
     sc = newMax; sf = newMin;
     $('p-spmax').value = sc; $('p-spmaxv').textContent = sc;
@@ -768,16 +776,16 @@ function setSlidersAndRange(newMax, newMin){
 }
 $('p-sp-auto').onclick = function(){
     const sp = window.spectrum;
-    const bins = sp && sp.bin_copy;
+    const bins = sp && sp.bin_copy;  // current FFT data in dBm
     if (!bins || bins.length === 0) return;
-    // Measure min/max from current bins (skip first/last 20 edge bins)
+    // Skip first/last 20 bins — edge roll-off produces misleading extremes
     let bMin = Infinity, bMax = -Infinity;
     const lo = Math.min(20, bins.length), hi = Math.max(lo, bins.length - 20);
     for (let i = lo; i < hi; i++) {
         if (bins[i] < bMin) bMin = bins[i];
         if (bins[i] > bMax) bMax = bins[i];
     }
-    // Round to 5 dB grid with margin
+    // Round to 5 dB grid with margin so traces aren't pinned to edges
     const newMax = Math.ceil((bMax + 5) / 5) * 5;
     const newMin = Math.floor((bMin - 5) / 5) * 5;
     setSlidersAndRange(
