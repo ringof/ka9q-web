@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Palomar SDR — Custom UI
 // @namespace    https://palomar-sdr.com/
-// @version      0.9.13
+// @version      0.9.14
 // @description  KiwiSDR-style overlay UI for palomar-sdr.com/radio.html
 // @author       W1EUJ
 // @match        https://palomar-sdr.com/radio.html
@@ -74,7 +74,7 @@ OV.innerHTML = `
   font-size:13px;background:#000;color:#fff;overflow:hidden;
 }
 #p-rf{flex:1;position:relative;min-height:0;display:flex;flex-direction:column}
-#p-sp-wrap{height:140px;flex-shrink:0;background:#000;position:relative;cursor:crosshair}
+#p-sp-wrap{flex:30;min-height:0;background:#000;position:relative;cursor:crosshair}
 #p-sp{display:block;width:100%;height:100%}
 #p-sp-db{
   position:absolute;top:0;left:2px;bottom:14px;
@@ -89,7 +89,7 @@ OV.innerHTML = `
 .p-pb-cf{position:absolute;top:0;height:100%;background:rgba(80,200,80,.18);z-index:1}
 .p-pb-cut{position:absolute;top:0;height:100%;width:5px;background:rgba(60,180,60,.5);z-index:2}
 .p-pb-car{position:absolute;top:0;height:100%;width:2px;background:rgba(80,220,80,.9);z-index:3}
-#p-wf-wrap{flex:1;position:relative;min-height:0;background:#1e5f7f;overflow:hidden;cursor:crosshair}
+#p-wf-wrap{flex:70;position:relative;min-height:0;background:#1e5f7f;overflow:hidden;cursor:crosshair}
 #p-wf{display:block;width:100%;height:100%;pointer-events:none}
 #p-tip{
   position:absolute;display:none;pointer-events:none;
@@ -269,6 +269,7 @@ input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;bac
       <div class="p-sl"><span class="p-sll">WF min</span><input type="range" id="p-wfmin" min="-160" max="0" value="-120"><span class="p-slv" id="p-wfminv">-120</span></div>
       <div class="p-sl"><span class="p-sll">Sp max</span><input type="range" id="p-spmax" min="-160" max="0" value="-30"><span class="p-slv" id="p-spmaxv">-30</span></div>
       <div class="p-sl"><span class="p-sll">Sp min</span><input type="range" id="p-spmin" min="-160" max="0" value="-130"><span class="p-slv" id="p-spminv">-130</span></div>
+      <div class="p-sl"><span class="p-sll">Sp/WF</span><input type="range" id="p-spratio" min="10" max="70" value="30"><span class="p-slv" id="p-spratiov">30%</span></div>
       <div class="br" style="margin-top:3px">
         <button class="cb" id="p-sp-col">Color</button>
         <button class="cb" id="p-sp-auto">Auto</button>
@@ -773,6 +774,12 @@ $('p-wfmax').oninput = function(){ const v=+this.value; $('p-wfmaxv').textConten
 $('p-wfmin').oninput = function(){ const v=+this.value; $('p-wfminv').textContent=v; if(window.spectrum) window.spectrum.wf_min_db=v; };
 $('p-spmax').oninput = function(){ sc=+this.value; $('p-spmaxv').textContent=sc; if(window.spectrum) window.spectrum.max_db=sc; buildDbLabels(); };
 $('p-spmin').oninput = function(){ sf=+this.value; $('p-spminv').textContent=sf; if(window.spectrum) window.spectrum.min_db=sf; buildDbLabels(); };
+$('p-spratio').oninput = function(){
+    const v=+this.value; $('p-spratiov').textContent=v+'%';
+    $('p-sp-wrap').style.flex=v; $('p-wf-wrap').style.flex=100-v;
+    if(window.spectrum) window.spectrum.setSpectrumPercent(v);
+    resize();
+};
 $('p-run').onclick  = function(){
     paused=!paused; this.textContent=paused?'⏸ Paused':'▶ Run';
     if(paused) this.classList.remove('sel'); else this.classList.add('sel');
