@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Palomar SDR — Custom UI
 // @namespace    https://palomar-sdr.com/
-// @version      0.9.15
+// @version      0.9.16
 // @description  KiwiSDR-style overlay UI for palomar-sdr.com/radio.html
 // @author       W1EUJ
 // @match        https://palomar-sdr.com/radio.html
@@ -90,6 +90,8 @@ OV.innerHTML = `
 .p-pb-cut{position:absolute;top:0;height:100%;width:5px;background:rgba(60,180,60,.5);z-index:2}
 .p-pb-car{position:absolute;top:0;height:100%;width:2px;background:rgba(80,220,80,.9);z-index:3}
 #p-wf-wrap{flex:70;position:relative;min-height:0;background:#1e5f7f;overflow:hidden;cursor:crosshair}
+#p-split-handle{height:5px;cursor:ns-resize;background:transparent;flex-shrink:0;position:relative;z-index:6}
+#p-split-handle:hover,#p-split-handle.active{background:rgba(100,180,255,.35)}
 #p-wf{display:block;width:100%;height:100%;pointer-events:none}
 #p-tip{
   position:absolute;display:none;pointer-events:none;
@@ -185,6 +187,7 @@ input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;bac
 
 <div id="p-rf">
   <div id="p-sp-wrap"><div id="p-sp-db"></div><canvas id="p-sp"></canvas></div>
+  <div id="p-split-handle" title="Drag to resize spectrum / waterfall"></div>
   <div id="p-tune-wrap">
     <span id="p-tunelbl"></span>
     <div id="p-dx-bar"></div>
@@ -796,6 +799,49 @@ $('p-spratio').oninput = function(){
     if(window.spectrum) window.spectrum.setSpectrumPercent(v);
     resize();
 };
+// ── Split-handle drag (resize spectrum / waterfall) ─────────────
+(function(){
+    const handle = $('p-split-handle');
+    const spWrap = $('p-sp-wrap');
+    const wfWrap = $('p-wf-wrap');
+    const rfWrap = $('p-rf');
+    const slider = $('p-spratio');
+    let dragging = false, startY, startSpH;
+
+    function onStart(e) {
+        dragging = true;
+        startY   = (e.touches ? e.touches[0] : e).clientY;
+        startSpH = spWrap.getBoundingClientRect().height;
+        handle.classList.add('active');
+        e.preventDefault();
+    }
+    function onMove(e) {
+        if (!dragging) return;
+        const y     = (e.touches ? e.touches[0] : e).clientY;
+        const dy    = y - startY;
+        const total = rfWrap.clientHeight - handle.offsetHeight
+                      - $('p-tune-wrap').offsetHeight;
+        if (total <= 0) return;
+        const pct = Math.round(Math.max(10, Math.min(70, (startSpH + dy) / total * 100)));
+        spWrap.style.flex = pct;
+        wfWrap.style.flex = 100 - pct;
+        if (slider) { slider.value = pct; $('p-spratiov').textContent = pct + '%'; }
+        if (window.spectrum) window.spectrum.setSpectrumPercent(pct);
+        resize();
+        e.preventDefault();
+    }
+    function onEnd() {
+        if (!dragging) return;
+        dragging = false;
+        handle.classList.remove('active');
+    }
+    handle.addEventListener('mousedown',  onStart);
+    handle.addEventListener('touchstart', onStart, {passive:false});
+    window.addEventListener('mousemove',  onMove);
+    window.addEventListener('touchmove',  onMove, {passive:false});
+    window.addEventListener('mouseup',    onEnd);
+    window.addEventListener('touchend',   onEnd);
+})();
 $('p-run').onclick  = function(){
     paused=!paused; this.textContent=paused?'⏸ Paused':'▶ Run';
     if(paused) this.classList.remove('sel'); else this.classList.add('sel');
