@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Palomar SDR — Custom UI
 // @namespace    https://palomar-sdr.com/
-// @version      0.9.14
+// @version      0.9.15
 // @description  KiwiSDR-style overlay UI for palomar-sdr.com/radio.html
 // @author       W1EUJ
 // @match        https://palomar-sdr.com/radio.html
@@ -692,16 +692,32 @@ function loop() {
 // ═══════════════════════════════════════════════════════════════════
 function rjsTune(khz) {
     tuneKhz = khz;
+    // Send F: command directly via websocket — mirrors spectrum.js click handler.
+    // ws is declared with `let` in radio.js (not on window) but is in
+    // the global lexical scope so we can reference it from here.
+    try {
+        if (typeof ws !== 'undefined' && ws && ws.readyState === WebSocket.OPEN) {
+            ws.send('F:' + khz.toFixed(3));
+        }
+    } catch (e) { console.warn('[overlay] rjsTune: ws not accessible', e); }
+    // Update spectrum object directly (like spectrum.js line 351)
+    if (window.spectrum) window.spectrum.frequency = khz * 1000;
+    // Keep the original freq input in sync for UI consistency
     const inp = document.getElementById('freq');
-    if (inp) {
-        inp.value = khz.toFixed(3);
-        if (typeof window.setFrequencyW === 'function') window.setFrequencyW();
-    }
+    if (inp) inp.value = khz.toFixed(3);
     updateFDisp();
 }
 function rjsMode(mode) {
     curMode = mode;
-    if (typeof window.setMode === 'function') window.setMode(mode);
+    // Send M: command directly — setMode is a local function in radio.js,
+    // not on window, so we send via ws like the original page does.
+    try {
+        if (typeof ws !== 'undefined' && ws && ws.readyState === WebSocket.OPEN) {
+            ws.send('M:' + mode);
+        }
+    } catch (e) { console.warn('[overlay] rjsMode: ws not accessible', e); }
+    const modeEl = document.getElementById('mode');
+    if (modeEl) modeEl.value = mode;
     drawScale(); updatePB();
 }
 function getStep() {
