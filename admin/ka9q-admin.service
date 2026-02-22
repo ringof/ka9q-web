@@ -7,9 +7,9 @@ Wants=ka9q-web.service
 Type=simple
 User=radio
 Group=radio
-ExecStart=/opt/ka9q-admin/venv/bin/python admin.py
-WorkingDirectory=/opt/ka9q-admin
-Environment=KA9Q_ADMIN_CONF=/etc/ka9q-web/admin.conf
+ExecStart=/home/wsprdaemon/wsprdaemon/ka9q-web/admin/venv/bin/python admin.py
+WorkingDirectory=/home/wsprdaemon/wsprdaemon/ka9q-web/admin
+Environment=KA9Q_ADMIN_CONF=/home/wsprdaemon/wsprdaemon/ka9q-web/admin/admin.conf
 Restart=always
 RestartSec=5
 

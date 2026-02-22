@@ -1,4 +1,4 @@
-KA9Q_RADIO_DIR=../ka9q-radio/src
+KA9Q_RADIO_DIR=ka9q-radio/src
 PREFIX=/usr/local
 
 # for production
@@ -19,6 +19,10 @@ CPPFLAGS=$(INCLUDES) -DRESOURCES_BASE_DIR=$(RESOURCES_BASE_DIR)
 KA9Q_RADIO_OBJS=$(KA9Q_RADIO_DIR)/multicast.o $(KA9Q_RADIO_DIR)/status.o $(KA9Q_RADIO_DIR)/misc.o $(KA9Q_RADIO_DIR)/decode_status.o $(KA9Q_RADIO_DIR)/rtp.o
 
 all: ka9q-web
+
+# Build ka9q-radio .o files using its own Makefile (never triggers install)
+$(KA9Q_RADIO_DIR)/%.o:
+	$(MAKE) -C $(KA9Q_RADIO_DIR) $(@F)
 
 ka9q-web: ka9q-web.o $(KA9Q_RADIO_OBJS)
 	$(CC) -o $@ $^ -lonion -lbsd -lm

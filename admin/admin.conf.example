@@ -3,10 +3,10 @@
 password = changeme
 
 # URL of the ka9q-web /status endpoint
-ka9q_url = http://localhost:8081/status
+ka9q_url = http://localhost:8082/status
 
 # Port for the admin dashboard
-port = 8082
+port = 8080
 
 # How often to poll /status (seconds)
 poll_interval = 5

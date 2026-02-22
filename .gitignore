@@ -1,5 +1,9 @@
 ka9q-web
+ka9q-web-dev
 *.o
+admin/venv/
+admin/admin.conf
+admin/*.db
 private
 .vscode/
 \#*\#
