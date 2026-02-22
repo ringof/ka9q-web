@@ -33,6 +33,8 @@ sudo systemctl start ka9q-web
 
 Open `http://<host>:8081` in a browser.
 
+For local development and testing, see [local-dev-test.md](local-dev-test.md).
+
 ---
 
 ## nginx Reverse Proxy and Connection Limiting
@@ -202,30 +204,28 @@ browser tabs and compare old vs new in real time.
 
 ### Prerequisites
 
-The dev build links against object files from ka9q-radio. On the SDR
-server this source tree is already cloned and built — confirm its location
-before proceeding:
+The dev build links against object files from ka9q-radio. This repo
+includes ka9q-radio as a git submodule, so the source is already present
+after a recursive clone:
 
 ```bash
-# Find the ka9q-radio source tree on this machine
-# Common locations: /home/<user>/ka9q-radio, /usr/local/src/ka9q-radio
-ls /path/to/ka9q-radio/src/multicast.o   # verify it's built
+git clone --recursive https://github.com/ringof/ka9q-web.git
+cd ka9q-web
 ```
 
-The Makefile defaults to `KA9Q_RADIO_DIR=../ka9q-radio/src`. If yours
-lives elsewhere, either override it or symlink:
+If you already have the repo, initialize the submodule:
 
 ```bash
-# Option A: override on the command line
-make ka9q-web-dev KA9Q_RADIO_DIR=/actual/path/to/ka9q-radio/src
-
-# Option B: symlink
-ln -s /actual/path/to/ka9q-radio ../ka9q-radio
-make ka9q-web-dev
+git submodule update --init
 ```
 
-**Do not proceed until `multicast.o`, `status.o`, `misc.o`,
-`decode_status.o`, and `rtp.o` exist in that directory.**
+The Makefile defaults to `KA9Q_RADIO_DIR=ka9q-radio/src` (the submodule).
+To use a different ka9q-radio source tree (e.g. a local checkout), override
+on the command line:
+
+```bash
+make ka9q-web-dev KA9Q_RADIO_DIR=/path/to/ka9q-radio/src
+```
 
 ### Build and run
 
@@ -273,37 +273,45 @@ connections in SQLite, and performs GeoIP lookups.
 
 ```bash
 cd admin
-pip install flask requests
+python3 -m venv venv
+venv/bin/pip install -r requirements.txt
 cp admin.conf.example admin.conf
 ```
 
-Edit `admin.conf`:
+Edit `admin.conf` — set `password` and `secret_key`:
 
 ```ini
 [admin]
 password = pick-something
-ka9q_url = http://localhost:8081/status
+ka9q_url = http://localhost:8082/status
 db_path = ./admin.db
 secret_key = any-random-string
 ```
 
 ```bash
-KA9Q_ADMIN_CONF=admin.conf python admin.py
+KA9Q_ADMIN_CONF=admin.conf venv/bin/python admin.py
 ```
 
-Open `http://localhost:8082`.
+Open `http://localhost:8080`.
 
 ### Production install
 
 ```bash
-sudo mkdir -p /opt/ka9q-admin /etc/ka9q-web /var/lib/ka9q-web
-sudo cp admin/admin.py admin/admin.html admin/admin.css /opt/ka9q-admin/
-sudo python3 -m venv /opt/ka9q-admin/venv
-sudo /opt/ka9q-admin/venv/bin/pip install flask requests
-sudo cp admin/admin.conf.example /etc/ka9q-web/admin.conf
-sudo vi /etc/ka9q-web/admin.conf   # set password
-sudo cp admin/ka9q-admin.service /etc/systemd/system/
-sudo chown -R radio:radio /opt/ka9q-admin /var/lib/ka9q-web
+# Set up the admin venv in the source tree
+cd admin
+python3 -m venv venv
+venv/bin/pip install -r requirements.txt
+
+# Create DB directory
+sudo mkdir -p /var/lib/ka9q-web
+sudo chown radio:radio /var/lib/ka9q-web
+
+# Configure
+cp admin.conf.example admin.conf
+# edit admin.conf — set password and secret_key
+
+# Install and start the service
+sudo cp ka9q-admin.service /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable --now ka9q-admin
 ```
@@ -326,8 +334,8 @@ All settings live in the `[admin]` section of `admin.conf`:
 | Key | Default | Description |
 |-----|---------|-------------|
 | `password` | `changeme` | Dashboard login password |
-| `ka9q_url` | `http://localhost:8081/status` | ka9q-web status page URL |
-| `port` | `8082` | Dashboard listen port |
+| `ka9q_url` | `http://localhost:8082/status` | ka9q-web status page URL |
+| `port` | `8080` | Dashboard listen port |
 | `poll_interval` | `5` | Seconds between status polls |
 | `db_path` | `/var/lib/ka9q-web/admin.db` | SQLite database path |
 | `history_limit` | `500` | Max disconnected sessions kept |
@@ -432,16 +440,19 @@ sudo ldconfig
 ### 4. Build and install ka9q-web
 
 ```bash
-git clone https://github.com/ringof/ka9q-web.git
+git clone --recursive https://github.com/ringof/ka9q-web.git
 cd ka9q-web
-```
-
-Edit `KA9Q_RADIO_DIR` in `Makefile` to point to your ka9q-radio source, then:
-
-```bash
 make
 sudo make install
 sudo make install-config
+```
+
+The `--recursive` flag pulls in ka9q-radio as a submodule. If you want to
+build against a different ka9q-radio source tree, override on the command
+line:
+
+```bash
+make KA9Q_RADIO_DIR=/path/to/ka9q-radio/src
 ```
 
 ## References
