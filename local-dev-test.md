@@ -57,7 +57,43 @@ sudo mkdir -p /var/lib/ka9q-web
 sudo chown radio:radio /var/lib/ka9q-web
 ```
 
-## 4. Install and start services
+## 4. Smoke-test the build
+
+Before installing systemd services, verify the binary starts correctly by
+running it in the foreground.
+
+First, confirm nothing is already listening on port 8082:
+
+```bash
+ss -tlnp | grep 8082
+```
+
+No output means the port is free. Then run the dev binary directly:
+
+```bash
+./ka9q-web-dev -m hf.local -p 8082
+```
+
+Open `http://<host>:8082` in a browser. If the page loads and the
+spectrum/waterfall display is active, the build is good. Press **Ctrl-C**
+to stop the process, then continue to the next step.
+
+> **Important:** You must run `ka9q-web-dev`, not `ka9q-web`. The two
+> binaries serve HTML/JS from different locations:
+>
+> | Binary | Serves from | Built by |
+> |--------|-------------|----------|
+> | `ka9q-web-dev` | `./html/` (local checkout) | `make ka9q-web-dev` |
+> | `ka9q-web` | `/usr/local/share/ka9q-web/html/` (system install) | `make` |
+>
+> Running the production binary against outdated installed JS files causes
+> a silent protocol mismatch — the page loads and tuning works, but the
+> spectrum and waterfall stay black.
+
+> **Tip:** If you see `Address already in use`, another process already holds
+> port 8082. Use `ss -tlnp | grep 8082` to identify it.
+
+## 5. Install and start services
 
 ```bash
 sudo cp ka9q-web-dev.service /etc/systemd/system/
@@ -71,7 +107,7 @@ sudo systemctl start ka9q-admin
 `WorkingDirectory`, `ExecStart`). Edit them if your checkout lives
 somewhere other than the path specified in the `.service` files.
 
-## 5. Verify
+## 6. Verify
 
 ```bash
 systemctl status ka9q-web-dev
