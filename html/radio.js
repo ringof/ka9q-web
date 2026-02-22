@@ -738,14 +738,13 @@ function applyQuickBW() {
             ad_over = view.getBigUint64(i,true); i+=8;
             samples_since_over = view.getBigUint64(i,true); i+=8;
             gps_time = view.getBigUint64(i,true); i+=8;
-            blocks_since_last_poll = view.getBigUint64(i,true); i+=8;
+	      noise_bw = view.getFloat32(i,true); i+= 4;
             rf_atten = view.getFloat32(i,true); i+=4;
             rf_gain = view.getFloat32(i,true); i+=4;
             rf_level_cal = view.getFloat32(i,true); i+=4;
             if_power = view.getFloat32(i,true); i+=4;
             noise_density_audio = view.getFloat32(i,true); i+=4;
             const z_level = view.getUint32(i,true); i+=4;
-            const bin_precision_bytes = view.getUint32(i,true); i+=4;
             const bins_autorange_offset =  view.getFloat32(i,true); i+=4;
             const bins_autorange_gain =  view.getFloat32(i,true); i+=4;
 
@@ -794,20 +793,7 @@ function applyQuickBW() {
                 }
               } catch (e) { /* ignore popup errors */ }
             }
-            var dataBuffer = evt.data.slice(i,data.byteLength);
-            if (4 == bin_precision_bytes) {
-              const arr = new Float32Array(dataBuffer);
-              spectrum.addData(arr);
-            }
-            else if (2 == bin_precision_bytes) {
-              const i16 = new Int16Array(dataBuffer);
-              const arr = new Float32Array(binCount);
-              for (i = 0; i < binCount; i++) {
-                arr[i] = 0.01 * i16[i];
-              }
-              spectrum.addData(arr);
-            }
-            else if (1 == bin_precision_bytes) {
+              var dataBuffer = evt.data.slice(i,data.byteLength);
               const i8 = new Uint8Array(dataBuffer);
               const arr = new Float32Array(binCount);
               // dynamic autorange of 8 bit bin levels, using offset/gain from webserver
@@ -815,7 +801,6 @@ function applyQuickBW() {
                 arr[i] = bins_autorange_offset + (bins_autorange_gain * i8[i]);
               }
               spectrum.addData(arr);
-            }
             /*
             if (pending_range_update) {
                 pending_range_update = false;
