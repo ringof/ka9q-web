@@ -633,7 +633,7 @@ function applyQuickBW() {
          console.log("WebSocket closed:", evt);
       }
 
-      async function on_ws_message(evt) {
+      function on_ws_message(evt) {
         if(typeof evt.data === 'string') {
           // text data
           //console.log(evt.data);
@@ -809,7 +809,7 @@ function applyQuickBW() {
             }
             */
 
-            update_stats();
+            try { update_stats(); } catch (e) { /* non-fatal */ }
             break;
             case 0x7E: // Channel Data
               while(i<data.byteLength) {
@@ -1966,7 +1966,7 @@ function formatUptimeDHMS(seconds) {
 }
 
 function update_stats() {
-  if (spectrum.paused)
+  if (!spectrum || spectrum.paused)
     return;
 
     // GPS time isn't UTC; it started at Sunday January 6, 1980 at 00:00:00 UTC and there have been 18 UTC leap seconds since
