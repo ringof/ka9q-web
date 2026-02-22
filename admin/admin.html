@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KA9Q-WEB Admin</title>
+  <link rel="stylesheet" href="/static/admin.css">
+</head>
+<body>
+{% if not authenticated %}
+  <div class="login-wrap">
+    <div class="login-box">
+      <h1>KA9Q-WEB Admin</h1>
+      <form method="POST" action="/login">
+        <input type="password" name="password" placeholder="Password" autofocus required>
+        <button type="submit">Log In</button>
+      </form>
+    </div>
+  </div>
+{% else %}
+  <div class="header">
+    <h1>KA9Q-WEB Admin</h1>
+    <div class="header-right">
+      <span class="clock" id="clock">{{ now_utc }}</span>
+      <a href="/logout" class="btn-logout">Logout</a>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>Current Users ({{ current|length }})</h2>
+    <table id="current-table">
+      <thead>
+        <tr>
+          <th>IP</th>
+          <th>Location</th>
+          <th>SSRC</th>
+          <th>Frequency</th>
+          <th>Audio</th>
+          <th>Duration</th>
+        </tr>
+      </thead>
+      <tbody id="current-body">
+        {% for c in current %}
+        <tr>
+          <td>{{ c.client_ip }}</td>
+          <td>{{ c.geo_city or '—' }}{% if c.geo_country and c.geo_country != 'LAN' %}, {{ c.geo_country }}{% elif c.geo_country == 'LAN' %} (LAN){% endif %}</td>
+          <td>{{ c.ssrc }}</td>
+          <td class="freq">{{ "%.3f"|format(c.frequency / 1000000) }} MHz</td>
+          <td>
+            <span class="audio-dot {{ 'active' if c.audio_active else 'inactive' }}"></span>
+            {{ 'Enabled' if c.audio_active else 'Disabled' }}
+          </td>
+          <td>—</td>
+        </tr>
+        {% endfor %}
+        {% if not current %}
+        <tr><td colspan="6" class="empty">No active connections</td></tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="section">
+    <h2>Connection History</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>IP</th>
+          <th>Location</th>
+          <th>SSRC</th>
+          <th>Frequency</th>
+          <th>Audio</th>
+          <th>Connected</th>
+          <th>Disconnected</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for h in history %}
+        <tr>
+          <td>{{ h.client_ip }}</td>
+          <td>{{ h.geo_city or '—' }}{% if h.geo_country and h.geo_country != 'LAN' %}, {{ h.geo_country }}{% elif h.geo_country == 'LAN' %} (LAN){% endif %}</td>
+          <td>{{ h.ssrc }}</td>
+          <td class="freq">{{ "%.3f"|format(h.frequency / 1000000) }} MHz</td>
+          <td>
+            <span class="audio-dot inactive"></span>
+            Disabled
+          </td>
+          <td>{{ h.first_seen[:19] }}</td>
+          <td>{{ h.disconnected_at[:19] if h.disconnected_at else '—' }}</td>
+        </tr>
+        {% endfor %}
+        {% if not history %}
+        <tr><td colspan="7" class="empty">No history yet</td></tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+
+  <script>
+    function updateClock() {
+      const el = document.getElementById('clock');
+      if (el) {
+        const now = new Date();
+        el.textContent = now.toISOString().replace('T', ' ').substring(0, 19) + ' UTC';
+      }
+    }
+
+    function formatDuration(isoStr) {
+      const start = new Date(isoStr);
+      const now = new Date();
+      let secs = Math.floor((now - start) / 1000);
+      if (secs < 0) secs = 0;
+      const h = Math.floor(secs / 3600);
+      const m = Math.floor((secs % 3600) / 60);
+      const s = secs % 60;
+      return h + ':' + String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+    }
+
+    function refreshCurrent() {
+      fetch('/api/current')
+        .then(r => r.json())
+        .then(data => {
+          const tbody = document.getElementById('current-body');
+          const heading = document.querySelector('.section h2');
+          heading.textContent = 'Current Users (' + data.length + ')';
+
+          if (data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" class="empty">No active connections</td></tr>';
+            return;
+          }
+
+          let html = '';
+          for (const c of data) {
+            const loc = (c.geo_city || '—') +
+              (c.geo_country && c.geo_country !== 'LAN' ? ', ' + c.geo_country :
+               c.geo_country === 'LAN' ? ' (LAN)' : '');
+            const freq = (c.frequency / 1000000).toFixed(3) + ' MHz';
+            const audioCls = c.audio_active ? 'active' : 'inactive';
+            const audioTxt = c.audio_active ? 'Enabled' : 'Disabled';
+            const dur = formatDuration(c.first_seen);
+
+            html += '<tr>'
+              + '<td>' + c.client_ip + '</td>'
+              + '<td>' + loc + '</td>'
+              + '<td>' + c.ssrc + '</td>'
+              + '<td class="freq">' + freq + '</td>'
+              + '<td><span class="audio-dot ' + audioCls + '"></span> ' + audioTxt + '</td>'
+              + '<td>' + dur + '</td>'
+              + '</tr>';
+          }
+          tbody.innerHTML = html;
+        })
+        .catch(() => {});
+    }
+
+    setInterval(updateClock, 1000);
+    setInterval(refreshCurrent, 5000);
+    updateClock();
+  </script>
+{% endif %}
+</body>
+</html>

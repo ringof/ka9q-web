@@ -1,0 +1,17 @@
+[Unit]
+Description=KA9Q Web SDR Admin Dashboard
+After=network-online.target
+Wants=ka9q-web.service
+
+[Service]
+Type=simple
+User=radio
+Group=radio
+ExecStart=/opt/ka9q-admin/venv/bin/python admin.py
+WorkingDirectory=/opt/ka9q-admin
+Environment=KA9Q_ADMIN_CONF=/etc/ka9q-web/admin.conf
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

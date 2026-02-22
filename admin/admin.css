@@ -1,0 +1,189 @@
+/* KA9Q-WEB Admin Dashboard — dark theme matching w1euj.js overlay */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  background: #000;
+  color: #fff;
+  font: 13px "DejaVu Sans", Verdana, Geneva, sans-serif;
+  min-height: 100vh;
+}
+
+/* ---- Login ---- */
+
+.login-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+}
+
+.login-box {
+  background: #575757;
+  padding: 32px 40px;
+  border-radius: 6px;
+  text-align: center;
+  width: 320px;
+}
+
+.login-box h1 {
+  font-size: 18px;
+  margin-bottom: 20px;
+  color: #ccc;
+}
+
+.login-box input {
+  display: block;
+  width: 100%;
+  padding: 8px 12px;
+  margin-bottom: 14px;
+  background: #3a3a3a;
+  border: 1px solid #666;
+  border-radius: 4px;
+  color: #fff;
+  font: 13px "DejaVu Sans", Verdana, Geneva, sans-serif;
+}
+
+.login-box input:focus {
+  outline: none;
+  border-color: #6af;
+}
+
+.login-box button {
+  width: 100%;
+  padding: 8px;
+  background: #373737;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font: 13px "DejaVu Sans", Verdana, Geneva, sans-serif;
+}
+
+.login-box button:hover {
+  background: #474747;
+}
+
+/* ---- Header ---- */
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 20px;
+  background: #575757;
+  border-bottom: 3px solid #aaa;
+}
+
+.header h1 {
+  font-size: 16px;
+  color: #ccc;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.clock {
+  color: #aaa;
+  font: 13px Consolas, monospace;
+}
+
+.btn-logout {
+  color: #6af;
+  text-decoration: none;
+  font-size: 13px;
+}
+
+.btn-logout:hover {
+  text-decoration: underline;
+}
+
+/* ---- Sections ---- */
+
+.section {
+  margin: 16px 20px;
+  background: #3a3a3a;
+  border-radius: 5px;
+  padding: 14px 16px;
+}
+
+.section h2 {
+  font-size: 14px;
+  color: #ccc;
+  margin-bottom: 10px;
+}
+
+/* ---- Tables ---- */
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+th {
+  text-align: left;
+  padding: 6px 10px;
+  color: #999;
+  border-bottom: 1px solid #666;
+  font-weight: normal;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+td {
+  padding: 5px 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  color: #bbb;
+  white-space: nowrap;
+}
+
+tr:hover td {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+td.empty {
+  text-align: center;
+  color: #666;
+  padding: 20px;
+}
+
+/* ---- Frequency ---- */
+
+td.freq {
+  color: #e8c000;
+  font: bold 13px Consolas, monospace;
+}
+
+/* ---- Audio dot ---- */
+
+.audio-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 4px;
+  vertical-align: middle;
+}
+
+.audio-dot.active {
+  background: #44cc44;
+}
+
+.audio-dot.inactive {
+  background: #666;
+}
+
+/* ---- Scrollbar (Firefox) ---- */
+
+* {
+  scrollbar-color: #777 #575757;
+  scrollbar-width: thin;
+}

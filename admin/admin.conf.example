@@ -1,0 +1,21 @@
+[admin]
+# Password for the admin dashboard
+password = changeme
+
+# URL of the ka9q-web /status endpoint
+ka9q_url = http://localhost:8081/status
+
+# Port for the admin dashboard
+port = 8082
+
+# How often to poll /status (seconds)
+poll_interval = 5
+
+# SQLite database path
+db_path = /var/lib/ka9q-web/admin.db
+
+# Maximum number of disconnected sessions to keep
+history_limit = 500
+
+# Flask session secret key — change this!
+secret_key = change-this-to-something-random
