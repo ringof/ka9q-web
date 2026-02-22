@@ -1,15 +1,7 @@
-// ==UserScript==
-// @name         Palomar SDR — Custom UI
-// @namespace    https://palomar-sdr.com/
-// @version      0.9.23
-// @description  KiwiSDR-style overlay UI for palomar-sdr.com/radio.html
-// @author       W1EUJ
-// @match        https://palomar-sdr.com/radio.html
-// @match        http://palomar-sdr.com/radio.html
-// @grant        none
-// @run-at       document-end
-// @license      GPL-3.0-or-later
-// ==/UserScript==
+// Palomar SDR — Custom UI
+// KiwiSDR-style overlay UI for radio.html
+// Author: W1EUJ
+// License: GPL-3.0-or-later
 //
 // Copyright (C) 2024-2026 W1EUJ
 //
