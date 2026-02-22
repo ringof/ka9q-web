@@ -299,7 +299,14 @@ sudo make install-config
 - [Scott Newell — ka9q-web (upstream)](https://github.com/scottnewell/ka9q-web)
 - [Onion web framework](https://github.com/davidmoreno/onion)
 
-## Copyright
+## Copyright and License
 
-Original ka9q-web: (C) 2023-2025 John Melton G0ORX — Licensed under the
-GNU GPL V3 (see [LICENSE](LICENSE))
+This project is licensed under the
+[GNU General Public License v3.0](LICENSE) or later.
+
+- ka9q-radio: (C) Phil Karn, KA9Q
+- ka9q-web: (C) 2023-2025 John Melton, G0ORX (N6LYT)
+- W1EUJ overlay and admin dashboard: (C) 2024-2026 W1EUJ
+- spectrum.js: (C) 2019 Jeppe Ledet-Pedersen (MIT license)
+- colormap.js: (C) 2013-2014 Andras Retzler, HA7ILM (OpenWebRX, GPL v3);
+  (C) 2015-2024 John Seamons, ZL4VO/KF6VO
