@@ -1,0 +1,27 @@
+# Development instance — runs side-by-side with production on a different port.
+# Both join the same multicast group so they see the same streams.
+#
+# Install:
+#   sudo cp ka9q-web-dev.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl start ka9q-web-dev
+#
+# Then open http://<host>:8082 for dev, http://<host>:8081 for production.
+
+[Unit]
+Description=ka9q-web development instance
+Requires=network-online.target
+
+[Service]
+Type=simple
+User=radio
+Group=radio
+AmbientCapabilities=CAP_SYS_NICE
+WorkingDirectory=/home/user/ka9q-web
+ExecStart=/home/user/ka9q-web/ka9q-web-dev -m hf-kfs-omni-status.local -p 8082
+Restart=always
+RestartSec=5
+TimeoutStopSec=5
+
+[Install]
+WantedBy=multi-user.target
