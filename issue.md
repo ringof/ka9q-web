@@ -69,6 +69,34 @@ compare old vs new in real time.
 | Resources | `/usr/local/share/ka9q-web/html/` | `/home/user/ka9q-web/html/` |
 | Service | `ka9q-web.service` | `ka9q-web-dev.service` |
 
+## Prerequisites
+
+The dev build links against object files from `ka9q-radio`. On the SDR
+server this source tree is already cloned and built somewhere — you need
+to confirm its location before proceeding.
+
+```bash
+# Find the ka9q-radio source tree on this machine
+# Common locations: /home/<user>/ka9q-radio, /usr/local/src/ka9q-radio
+ls /path/to/ka9q-radio/src/multicast.o   # verify it's built
+```
+
+The Makefile defaults to `KA9Q_RADIO_DIR=../ka9q-radio/src`. If your
+ka9q-radio lives elsewhere, override it:
+
+```bash
+make ka9q-web-dev KA9Q_RADIO_DIR=/actual/path/to/ka9q-radio/src
+```
+
+Or symlink it into place:
+
+```bash
+ln -s /actual/path/to/ka9q-radio ../ka9q-radio
+```
+
+**Do not proceed until `multicast.o`, `status.o`, `misc.o`,
+`decode_status.o`, and `rtp.o` exist in that directory.**
+
 ## Build
 
 ```bash
