@@ -35,6 +35,158 @@ Open `http://<host>:8081` in a browser.
 
 ---
 
+## nginx Reverse Proxy and Connection Limiting
+
+In production, nginx sits in front of ka9q-web as a reverse proxy to
+provide per-user and global connection limits. Cloudflare Tunnel
+(cloudflared) handles TLS and public routing — nginx runs on localhost
+between cloudflared and ka9q-web.
+
+The traffic path is:
+
+```
+User → Cloudflare Tunnel → cloudflared (localhost) → nginx (:8080) → ka9q-web (:8073)
+```
+
+### Install nginx
+
+Ubuntu / Debian:
+```bash
+sudo apt install nginx
+```
+
+RHEL / CentOS / Fedora:
+```bash
+sudo dnf install nginx
+```
+
+### Configuration
+
+Remove the default site (it listens on port 80 and will conflict):
+
+```bash
+sudo rm /etc/nginx/sites-enabled/default
+```
+
+Create `/etc/nginx/sites-available/sdr`:
+
+```nginx
+# Real client IP from Cloudflare
+set_real_ip_from 127.0.0.1;
+real_ip_header   CF-Connecting-IP;
+
+# Per-IP connection limit
+limit_conn_zone $binary_remote_addr zone=sdr_conn:10m;
+limit_conn_log_level warn;
+
+# Global connection limit (all users share one pool)
+limit_conn_zone "global" zone=sdr_global:1m;
+
+server {
+    listen 8080;
+    server_name _;
+
+    location / {
+        # Per-IP: max simultaneous connections per user
+        limit_conn sdr_conn 3;
+
+        # Global: max simultaneous connections total
+        limit_conn sdr_global 20;
+
+        limit_conn_status 429;
+
+        proxy_pass http://localhost:8073;
+
+        # WebSocket support
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade    $http_upgrade;
+        proxy_set_header Connection "upgrade";
+
+        # Keep idle WebSockets alive
+        proxy_read_timeout  3600s;
+        proxy_send_timeout  3600s;
+
+        # Pass real IP to ka9q-web
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header CF-Connecting-IP  $http_cf_connecting_ip;
+    }
+}
+```
+
+Enable the site, test, and reload:
+
+```bash
+sudo ln -s /etc/nginx/sites-available/sdr /etc/nginx/sites-enabled/sdr
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+Then point your Cloudflare Tunnel to `http://localhost:8080`.
+
+### Verifying it works
+
+```bash
+# Confirm nginx is listening on 8080
+sudo ss -tlnp | grep 8080
+
+# Watch traffic flow in real time
+sudo tail -f /var/log/nginx/access.log
+```
+
+Load the site in a browser while watching the access log. You should see
+requests appear with real client IPs (not 127.0.0.1), confirming that
+both the proxy and the `set_real_ip_from` / `CF-Connecting-IP` config
+are working.
+
+### Tuning the limits
+
+| Directive | What it controls | Default above |
+|-----------|-----------------|---------------|
+| `limit_conn sdr_conn N` | Max simultaneous connections per IP | 3 |
+| `limit_conn sdr_global N` | Max simultaneous connections total | 20 |
+
+A single browser tab opens one WebSocket plus a handful of HTTP
+requests, so `limit_conn sdr_conn 3` allows a couple of tabs per user.
+The global limit protects the server from being overwhelmed regardless of
+how many distinct IPs connect. Any connection beyond either limit
+receives a 429 status.
+
+### Without Cloudflare Tunnel (direct / LAN)
+
+If you're not using Cloudflare Tunnel, remove the `set_real_ip_from` and
+`real_ip_header` directives, switch to port 80, and use `X-Real-IP` /
+`X-Forwarded-For` instead:
+
+```nginx
+limit_conn_zone $binary_remote_addr zone=sdr_conn:10m;
+limit_conn_zone "global" zone=sdr_global:1m;
+limit_conn_log_level warn;
+
+server {
+    listen 80;
+    server_name _;
+
+    location / {
+        limit_conn sdr_conn 3;
+        limit_conn sdr_global 20;
+        limit_conn_status 429;
+
+        proxy_pass http://localhost:8073;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade    $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header X-Real-IP       $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header Host            $host;
+        proxy_read_timeout  3600s;
+        proxy_send_timeout  3600s;
+    }
+}
+```
+
+---
+
 ## Developer Setup: Side-by-Side Instances
 
 Run your development build alongside production on a different port. Both
