@@ -35,11 +35,18 @@ Open `http://<host>:8081` in a browser.
 
 ---
 
-## nginx Reverse Proxy and Rate Limiting
+## nginx Reverse Proxy and Connection Limiting
 
-In production, nginx sits in front of ka9q-web to provide TLS termination,
-per-user connection limits, and global rate limiting. This is the recommended
-deployment — ka9q-web binds to localhost and nginx handles all public traffic.
+In production, nginx sits in front of ka9q-web as a reverse proxy to
+provide per-user and global connection limits. Cloudflare Tunnel
+(cloudflared) handles TLS and public routing — nginx runs on localhost
+between cloudflared and ka9q-web.
+
+The traffic path is:
+
+```
+User → Cloudflare Tunnel → cloudflared (localhost) → nginx (:8080) → ka9q-web (:8073)
+```
 
 ### Install nginx
 
@@ -55,103 +62,125 @@ sudo dnf install nginx
 
 ### Configuration
 
-Create `/etc/nginx/sites-available/ka9q-web`:
+Remove the default site (it listens on port 80 and will conflict):
+
+```bash
+sudo rm /etc/nginx/sites-enabled/default
+```
+
+Create `/etc/nginx/sites-available/sdr`:
 
 ```nginx
-# --- Rate-limiting zones (go in http block or top of site config) ---
+# Real client IP from Cloudflare
+set_real_ip_from 127.0.0.1;
+real_ip_header   CF-Connecting-IP;
+
 # Per-IP connection limit
-limit_conn_zone $binary_remote_addr zone=ws_conn:10m;
+limit_conn_zone $binary_remote_addr zone=sdr_conn:10m;
+limit_conn_log_level warn;
 
-# Per-IP request rate limit
-limit_req_zone  $binary_remote_addr zone=ws_req:10m rate=20r/s;
-
-server {
-    listen 80;
-    server_name your.hostname.here;
-
-    # Redirect HTTP -> HTTPS (optional, recommended)
-    return 301 https://$host$request_uri;
-}
+# Global connection limit (all users share one pool)
+limit_conn_zone "global" zone=sdr_global:1m;
 
 server {
-    listen 443 ssl;
-    server_name your.hostname.here;
+    listen 8080;
+    server_name _;
 
-    ssl_certificate     /etc/letsencrypt/live/your.hostname.here/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/your.hostname.here/privkey.pem;
-
-    # --- Global limits ---
-    # Max simultaneous WebSocket connections per IP
-    limit_conn ws_conn 4;
-
-    # Burst-tolerant request rate limit per IP
-    limit_req zone=ws_req burst=40 nodelay;
-
-    # --- Reverse proxy to ka9q-web ---
     location / {
-        proxy_pass http://127.0.0.1:8081;
-        proxy_http_version 1.1;
+        # Per-IP: max simultaneous connections per user
+        limit_conn sdr_conn 3;
 
-        # WebSocket upgrade
+        # Global: max simultaneous connections total
+        limit_conn sdr_global 20;
+
+        limit_conn_status 429;
+
+        proxy_pass http://localhost:8073;
+
+        # WebSocket support
+        proxy_http_version 1.1;
         proxy_set_header Upgrade    $http_upgrade;
         proxy_set_header Connection "upgrade";
 
-        # Pass real client IP to ka9q-web
-        proxy_set_header X-Real-IP       $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header Host            $host;
+        # Keep idle WebSockets alive
+        proxy_read_timeout  3600s;
+        proxy_send_timeout  3600s;
 
-        # Long timeouts for persistent WebSocket streams
-        proxy_read_timeout  86400s;
-        proxy_send_timeout  86400s;
+        # Pass real IP to ka9q-web
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header CF-Connecting-IP  $http_cf_connecting_ip;
     }
 }
 ```
 
-Enable the site and restart:
+Enable the site, test, and reload:
 
 ```bash
-sudo ln -s /etc/nginx/sites-available/ka9q-web /etc/nginx/sites-enabled/
-sudo nginx -t            # verify config
-sudo systemctl restart nginx
+sudo ln -s /etc/nginx/sites-available/sdr /etc/nginx/sites-enabled/sdr
+sudo nginx -t
+sudo systemctl reload nginx
 ```
+
+Then point your Cloudflare Tunnel to `http://localhost:8080`.
+
+### Verifying it works
+
+```bash
+# Confirm nginx is listening on 8080
+sudo ss -tlnp | grep 8080
+
+# Watch traffic flow in real time
+sudo tail -f /var/log/nginx/access.log
+```
+
+Load the site in a browser while watching the access log. You should see
+requests appear with real client IPs (not 127.0.0.1), confirming that
+both the proxy and the `set_real_ip_from` / `CF-Connecting-IP` config
+are working.
 
 ### Tuning the limits
 
 | Directive | What it controls | Default above |
 |-----------|-----------------|---------------|
-| `limit_conn ws_conn N` | Max simultaneous connections per IP | 4 |
-| `rate=Nr/s` | Sustained request rate per IP | 20 r/s |
-| `burst=N` | Extra requests allowed in a burst | 40 |
+| `limit_conn sdr_conn N` | Max simultaneous connections per IP | 3 |
+| `limit_conn sdr_global N` | Max simultaneous connections total | 20 |
 
-Adjust these based on your user base. A single browser tab opens one
-WebSocket plus a handful of HTTP requests, so `limit_conn 4` allows a
-few tabs per user. The request rate limit protects against automated
-abuse without affecting normal usage.
+A single browser tab opens one WebSocket plus a handful of HTTP
+requests, so `limit_conn sdr_conn 3` allows a couple of tabs per user.
+The global limit protects the server from being overwhelmed regardless of
+how many distinct IPs connect. Any connection beyond either limit
+receives a 429 status.
 
-### Without TLS
+### Without Cloudflare Tunnel (direct / LAN)
 
-If you don't need HTTPS (e.g., LAN-only or behind Cloudflare Tunnel),
-drop the SSL directives and listen on port 80 directly:
+If you're not using Cloudflare Tunnel, remove the `set_real_ip_from` and
+`real_ip_header` directives, switch to port 80, and use `X-Real-IP` /
+`X-Forwarded-For` instead:
 
 ```nginx
+limit_conn_zone $binary_remote_addr zone=sdr_conn:10m;
+limit_conn_zone "global" zone=sdr_global:1m;
+limit_conn_log_level warn;
+
 server {
     listen 80;
     server_name _;
 
-    limit_conn ws_conn 4;
-    limit_req zone=ws_req burst=40 nodelay;
-
     location / {
-        proxy_pass http://127.0.0.1:8081;
+        limit_conn sdr_conn 3;
+        limit_conn sdr_global 20;
+        limit_conn_status 429;
+
+        proxy_pass http://localhost:8073;
         proxy_http_version 1.1;
         proxy_set_header Upgrade    $http_upgrade;
         proxy_set_header Connection "upgrade";
         proxy_set_header X-Real-IP       $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header Host            $host;
-        proxy_read_timeout  86400s;
-        proxy_send_timeout  86400s;
+        proxy_read_timeout  3600s;
+        proxy_send_timeout  3600s;
     }
 }
 ```
