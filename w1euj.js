@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Palomar SDR — Custom UI
 // @namespace    https://palomar-sdr.com/
-// @version      0.9.21
+// @version      0.9.22
 // @description  KiwiSDR-style overlay UI for palomar-sdr.com/radio.html
 // @author       W1EUJ
 // @match        https://palomar-sdr.com/radio.html
