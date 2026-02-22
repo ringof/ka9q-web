@@ -54,8 +54,8 @@ from flask import (
 
 DEFAULT_CONF = {
     "password": "changeme",
-    "ka9q_url": "http://localhost:8081/status",
-    "port": "8082",
+    "ka9q_url": "http://localhost:8082/status",
+    "port": "8080",
     "poll_interval": "5",
     "db_path": "/var/lib/ka9q-web/admin.db",
     "history_limit": "500",
