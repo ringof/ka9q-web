@@ -35,6 +35,129 @@ Open `http://<host>:8081` in a browser.
 
 ---
 
+## nginx Reverse Proxy and Rate Limiting
+
+In production, nginx sits in front of ka9q-web to provide TLS termination,
+per-user connection limits, and global rate limiting. This is the recommended
+deployment — ka9q-web binds to localhost and nginx handles all public traffic.
+
+### Install nginx
+
+Ubuntu / Debian:
+```bash
+sudo apt install nginx
+```
+
+RHEL / CentOS / Fedora:
+```bash
+sudo dnf install nginx
+```
+
+### Configuration
+
+Create `/etc/nginx/sites-available/ka9q-web`:
+
+```nginx
+# --- Rate-limiting zones (go in http block or top of site config) ---
+# Per-IP connection limit
+limit_conn_zone $binary_remote_addr zone=ws_conn:10m;
+
+# Per-IP request rate limit
+limit_req_zone  $binary_remote_addr zone=ws_req:10m rate=20r/s;
+
+server {
+    listen 80;
+    server_name your.hostname.here;
+
+    # Redirect HTTP -> HTTPS (optional, recommended)
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    server_name your.hostname.here;
+
+    ssl_certificate     /etc/letsencrypt/live/your.hostname.here/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/your.hostname.here/privkey.pem;
+
+    # --- Global limits ---
+    # Max simultaneous WebSocket connections per IP
+    limit_conn ws_conn 4;
+
+    # Burst-tolerant request rate limit per IP
+    limit_req zone=ws_req burst=40 nodelay;
+
+    # --- Reverse proxy to ka9q-web ---
+    location / {
+        proxy_pass http://127.0.0.1:8081;
+        proxy_http_version 1.1;
+
+        # WebSocket upgrade
+        proxy_set_header Upgrade    $http_upgrade;
+        proxy_set_header Connection "upgrade";
+
+        # Pass real client IP to ka9q-web
+        proxy_set_header X-Real-IP       $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header Host            $host;
+
+        # Long timeouts for persistent WebSocket streams
+        proxy_read_timeout  86400s;
+        proxy_send_timeout  86400s;
+    }
+}
+```
+
+Enable the site and restart:
+
+```bash
+sudo ln -s /etc/nginx/sites-available/ka9q-web /etc/nginx/sites-enabled/
+sudo nginx -t            # verify config
+sudo systemctl restart nginx
+```
+
+### Tuning the limits
+
+| Directive | What it controls | Default above |
+|-----------|-----------------|---------------|
+| `limit_conn ws_conn N` | Max simultaneous connections per IP | 4 |
+| `rate=Nr/s` | Sustained request rate per IP | 20 r/s |
+| `burst=N` | Extra requests allowed in a burst | 40 |
+
+Adjust these based on your user base. A single browser tab opens one
+WebSocket plus a handful of HTTP requests, so `limit_conn 4` allows a
+few tabs per user. The request rate limit protects against automated
+abuse without affecting normal usage.
+
+### Without TLS
+
+If you don't need HTTPS (e.g., LAN-only or behind Cloudflare Tunnel),
+drop the SSL directives and listen on port 80 directly:
+
+```nginx
+server {
+    listen 80;
+    server_name _;
+
+    limit_conn ws_conn 4;
+    limit_req zone=ws_req burst=40 nodelay;
+
+    location / {
+        proxy_pass http://127.0.0.1:8081;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade    $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header X-Real-IP       $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header Host            $host;
+        proxy_read_timeout  86400s;
+        proxy_send_timeout  86400s;
+    }
+}
+```
+
+---
+
 ## Developer Setup: Side-by-Side Instances
 
 Run your development build alongside production on a different port. Both
