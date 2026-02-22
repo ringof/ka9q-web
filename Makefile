@@ -23,6 +23,15 @@ all: ka9q-web
 ka9q-web: ka9q-web.o $(KA9Q_RADIO_OBJS)
 	$(CC) -o $@ $^ -lonion -lbsd -lm
 
+# Dev build — resources default to ./html so you can edit in place
+ka9q-web-dev: RESOURCES_BASE_DIR=.
+ka9q-web-dev: DOPTS=-g
+ka9q-web-dev: ka9q-web-dev.o $(KA9Q_RADIO_OBJS)
+	$(CC) -o $@ $^ -lonion -lbsd -lm
+
+ka9q-web-dev.o: ka9q-web.c
+	$(CC) $(CFLAGS) $(CPPFLAGS) -c -o $@ $<
+
 install: ka9q-web
 	install -m 755 $^ $(PREFIX)/sbin
 	install -m 644 -D html/* -t $(RESOURCES_BASE_DIR)/html/
@@ -31,6 +40,6 @@ install-config:
 	install -b -m 644 config/* /etc/radio
 
 clean:
-	-rm -f ka9q-web *.o *.d
+	-rm -f ka9q-web ka9q-web-dev *.o *.d
 
 .PHONY: clean all install
