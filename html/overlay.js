@@ -713,6 +713,9 @@ function rjsTune(khz) {
     } catch (e) { console.warn('[overlay] rjsTune: ws not accessible', e); }
     // Update spectrum object directly (like spectrum.js line 351)
     if (window.spectrum) window.spectrum.frequency = khz * 1000;
+    // Sync frequencyHz (var in radio.js, on window) so the per-frame sync loop
+    // at line ~684 won't see a mismatch and revert tuneKhz to the stale value.
+    frequencyHz = khz * 1000;
     // Keep the original freq input in sync for UI consistency
     const inp = document.getElementById('freq');
     if (inp) inp.value = khz.toFixed(3);
@@ -729,6 +732,26 @@ function rjsMode(mode) {
     } catch (e) { console.warn('[overlay] rjsMode: ws not accessible', e); }
     const modeEl = document.getElementById('mode');
     if (modeEl) modeEl.value = mode;
+    // Reinitialize PCMPlayer with correct sample rate for this mode.
+    // Without this, FM↔non-FM switches produce garbled audio because
+    // the player stays at the old sample rate. Mirrors radio.js setMode().
+    try {
+        if (typeof player !== 'undefined' && player) {
+            const newSampleRate = (mode === 'fm') ? 24000 : 12000;
+            const newChannels = (mode === 'iq') ? 2 : 1;
+            player.destroy();
+            player = new PCMPlayer({
+                encoding: '16bitInt',
+                channels: newChannels,
+                sampleRate: newSampleRate,
+                flushingTime: 250
+            });
+            const vol = document.getElementById('volume_control');
+            if (vol && typeof setPlayerVolume === 'function') {
+                setPlayerVolume(vol.value);
+            }
+        }
+    } catch (e) { console.warn('[overlay] rjsMode: PCMPlayer reinit failed', e); }
     drawScale(); updatePB();
 }
 function getStep() {
