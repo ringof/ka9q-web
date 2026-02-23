@@ -745,8 +745,13 @@ function applyQuickBW() {
             if_power = view.getFloat32(i,true); i+=4;
             noise_density_audio = view.getFloat32(i,true); i+=4;
             const z_level = view.getUint32(i,true); i+=4;
-            const bins_autorange_offset =  view.getFloat32(i,true); i+=4;
-            const bins_autorange_gain =  view.getFloat32(i,true); i+=4;
+            let bins_autorange_offset =  view.getFloat32(i,true); i+=4;
+            let bins_autorange_gain =  view.getFloat32(i,true); i+=4;
+            // Fallback for servers that don't compute autorange (base/step = 0)
+            if (bins_autorange_gain === 0) {
+              bins_autorange_gain = 0.5;    // ka9q-radio FIXED_STEP default
+              bins_autorange_offset = -160;  // typical SDR noise floor in dBm
+            }
 
             if(update) {
               calcFrequencies();
