@@ -85,7 +85,15 @@ PCMPlayer.prototype.feed = function(data) {
     tmp.set(this.samples, 0);
     tmp.set(fdata, this.samples.length);
     this.samples = tmp;
-    this.audioCtx.resume();
+    // Only attempt resume when suspended and no attempt is already in-flight
+    if (this.audioCtx.state === 'suspended' && !this._resumePending) {
+        this._resumePending = true;
+        this.audioCtx.resume().then(function() {
+            this._resumePending = false;
+        }.bind(this)).catch(function() {
+            this._resumePending = false;
+        }.bind(this));
+    }
 };
 
 PCMPlayer.prototype.getFormatedValue = function(data) {
