@@ -931,6 +931,11 @@ $('p-spratio').oninput = function(){
     let dragging = false, startY, startSpH;
 
     function onStart(e) {
+        // Don't steal drags that are intended for passband controls.
+        const t = e.target;
+        if (t && t.closest && t.closest('#p-pb-lo, #p-pb-hi, #p-pb-cf, #p-pb-car')) {
+            return;
+        }
         dragging = true;
         startY   = (e.touches ? e.touches[0] : e).clientY;
         startSpH = spWrap.getBoundingClientRect().height;
