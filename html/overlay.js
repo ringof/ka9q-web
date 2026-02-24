@@ -535,7 +535,8 @@ function updateTuneLabel() {
 
 function updatePB() {
     const W = scC.width; if (!W) return;
-    const pb = PB[curMode]||[0,2.8], lo = centerKhz-spanKhz/2, H = $('p-sc-wrap').clientHeight;
+    const pb = getActivePassbandKhz();
+    const lo = centerKhz-spanKhz/2, H = $('p-sc-wrap').clientHeight;
     const car = Math.round(((tuneKhz-lo)/spanKhz)*W);
     const x0  = Math.round(((tuneKhz+pb[0]-lo)/spanKhz)*W);
     const x1  = Math.round(((tuneKhz+pb[1]-lo)/spanKhz)*W);
@@ -544,6 +545,93 @@ function updatePB() {
     $('p-pb-cf').style.cssText = `left:${x0}px;width:${Math.max(0,x1-x0)}px;height:${H}px`;
     $('p-pb-car').style.cssText = `left:${car-1}px;height:${H}px`;
 }
+
+// Prefer live backend-confirmed passband edges from radio.js globals.
+// Fallback to static mode defaults if globals are not available yet.
+function getActivePassbandKhz() {
+    const hasLiveEdges = Number.isFinite(window.filter_low) && Number.isFinite(window.filter_high);
+    if (hasLiveEdges) {
+        const lo = Math.min(window.filter_low, window.filter_high) / 1000;
+        const hi = Math.max(window.filter_low, window.filter_high) / 1000;
+        return [lo, hi];
+    }
+    return PB[curMode] || [0, 2.8];
+}
+
+// Kiwi-style low-risk first step: draggable low/high cut handles on the passband scale.
+// This only adjusts low/high edge inputs and calls existing sendFilterEdges() in radio.js.
+(function setupPassbandHandleDrag(){
+    const scWrap = $('p-sc-wrap');
+    const loHandle = $('p-pb-lo');
+    const hiHandle = $('p-pb-hi');
+    if (!scWrap || !loHandle || !hiHandle) return;
+
+    const EDGE_MIN_HZ = 50;
+    let dragTarget = null; // 'low' | 'high'
+
+    function hzPerPixel(rect) {
+        if (!rect || !rect.width || !spanKhz) return 0;
+        return (spanKhz * 1000) / rect.width;
+    }
+
+    function clampEdges(lowHz, highHz, target) {
+        if (!Number.isFinite(lowHz) || !Number.isFinite(highHz)) return [lowHz, highHz];
+        // Keep a minimum passband width; preserve the dragged edge as primary.
+        if ((highHz - lowHz) < EDGE_MIN_HZ) {
+            if (target === 'low') lowHz = highHz - EDGE_MIN_HZ;
+            else highHz = lowHz + EDGE_MIN_HZ;
+        }
+        return [lowHz, highHz];
+    }
+
+    function applyDraggedEdge(clientX, target) {
+        const rect = scWrap.getBoundingClientRect();
+        const hpp = hzPerPixel(rect);
+        if (!hpp) return;
+
+        const x = Math.max(0, Math.min(rect.width, clientX - rect.left));
+        const loCanvasHz = (centerKhz - spanKhz / 2) * 1000;
+        const absHz = loCanvasHz + x * hpp;
+        const relHz = Math.round(absHz - tuneKhz * 1000);
+
+        const lowEl = document.getElementById('filterLowInput');
+        const highEl = document.getElementById('filterHighInput');
+        if (!lowEl || !highEl) return;
+
+        let low = parseFloat(lowEl.value);
+        let high = parseFloat(highEl.value);
+        if (!Number.isFinite(low) || !Number.isFinite(high)) {
+            const pb = getActivePassbandKhz();
+            low = pb[0] * 1000;
+            high = pb[1] * 1000;
+        }
+
+        if (target === 'low') low = relHz;
+        if (target === 'high') high = relHz;
+        [low, high] = clampEdges(low, high, target);
+
+        lowEl.value = Math.round(low);
+        highEl.value = Math.round(high);
+        if (typeof window.sendFilterEdges === 'function') {
+            window.sendFilterEdges();
+        }
+    }
+
+    function startDrag(e, target) {
+        dragTarget = target;
+        e.preventDefault();
+        e.stopPropagation();
+    }
+
+    loHandle.addEventListener('pointerdown', e => startDrag(e, 'low'));
+    hiHandle.addEventListener('pointerdown', e => startDrag(e, 'high'));
+    window.addEventListener('pointermove', e => {
+        if (!dragTarget) return;
+        applyDraggedEdge(e.clientX, dragTarget);
+    });
+    window.addEventListener('pointerup', () => { dragTarget = null; });
+    window.addEventListener('pointercancel', () => { dragTarget = null; });
+})();
 
 function buildDbLabels() {
     const H = spC.height; if (!H) return;
@@ -843,6 +931,11 @@ $('p-spratio').oninput = function(){
     let dragging = false, startY, startSpH;
 
     function onStart(e) {
+        // Don't steal drags that are intended for passband controls.
+        const t = e.target;
+        if (t && t.closest && t.closest('#p-pb-lo, #p-pb-hi, #p-pb-cf, #p-pb-car')) {
+            return;
+        }
         dragging = true;
         startY   = (e.touches ? e.touches[0] : e).clientY;
         startSpH = spWrap.getBoundingClientRect().height;
