@@ -1,15 +1,7 @@
-// ==UserScript==
-// @name         Palomar SDR — Custom UI
-// @namespace    https://palomar-sdr.com/
-// @version      0.9.23
-// @description  KiwiSDR-style overlay UI for palomar-sdr.com/radio.html
-// @author       W1EUJ
-// @match        https://palomar-sdr.com/radio.html
-// @match        http://palomar-sdr.com/radio.html
-// @grant        none
-// @run-at       document-end
-// @license      GPL-3.0-or-later
-// ==/UserScript==
+// Palomar SDR — Custom UI
+// KiwiSDR-style overlay UI for radio.html
+// Author: W1EUJ
+// License: GPL-3.0-or-later
 //
 // Copyright (C) 2024-2026 W1EUJ
 //
@@ -543,7 +535,8 @@ function updateTuneLabel() {
 
 function updatePB() {
     const W = scC.width; if (!W) return;
-    const pb = PB[curMode]||[0,2.8], lo = centerKhz-spanKhz/2, H = $('p-sc-wrap').clientHeight;
+    const pb = getActivePassbandKhz();
+    const lo = centerKhz-spanKhz/2, H = $('p-sc-wrap').clientHeight;
     const car = Math.round(((tuneKhz-lo)/spanKhz)*W);
     const x0  = Math.round(((tuneKhz+pb[0]-lo)/spanKhz)*W);
     const x1  = Math.round(((tuneKhz+pb[1]-lo)/spanKhz)*W);
@@ -552,6 +545,93 @@ function updatePB() {
     $('p-pb-cf').style.cssText = `left:${x0}px;width:${Math.max(0,x1-x0)}px;height:${H}px`;
     $('p-pb-car').style.cssText = `left:${car-1}px;height:${H}px`;
 }
+
+// Prefer live backend-confirmed passband edges from radio.js globals.
+// Fallback to static mode defaults if globals are not available yet.
+function getActivePassbandKhz() {
+    const hasLiveEdges = Number.isFinite(window.filter_low) && Number.isFinite(window.filter_high);
+    if (hasLiveEdges) {
+        const lo = Math.min(window.filter_low, window.filter_high) / 1000;
+        const hi = Math.max(window.filter_low, window.filter_high) / 1000;
+        return [lo, hi];
+    }
+    return PB[curMode] || [0, 2.8];
+}
+
+// Kiwi-style low-risk first step: draggable low/high cut handles on the passband scale.
+// This only adjusts low/high edge inputs and calls existing sendFilterEdges() in radio.js.
+(function setupPassbandHandleDrag(){
+    const scWrap = $('p-sc-wrap');
+    const loHandle = $('p-pb-lo');
+    const hiHandle = $('p-pb-hi');
+    if (!scWrap || !loHandle || !hiHandle) return;
+
+    const EDGE_MIN_HZ = 50;
+    let dragTarget = null; // 'low' | 'high'
+
+    function hzPerPixel(rect) {
+        if (!rect || !rect.width || !spanKhz) return 0;
+        return (spanKhz * 1000) / rect.width;
+    }
+
+    function clampEdges(lowHz, highHz, target) {
+        if (!Number.isFinite(lowHz) || !Number.isFinite(highHz)) return [lowHz, highHz];
+        // Keep a minimum passband width; preserve the dragged edge as primary.
+        if ((highHz - lowHz) < EDGE_MIN_HZ) {
+            if (target === 'low') lowHz = highHz - EDGE_MIN_HZ;
+            else highHz = lowHz + EDGE_MIN_HZ;
+        }
+        return [lowHz, highHz];
+    }
+
+    function applyDraggedEdge(clientX, target) {
+        const rect = scWrap.getBoundingClientRect();
+        const hpp = hzPerPixel(rect);
+        if (!hpp) return;
+
+        const x = Math.max(0, Math.min(rect.width, clientX - rect.left));
+        const loCanvasHz = (centerKhz - spanKhz / 2) * 1000;
+        const absHz = loCanvasHz + x * hpp;
+        const relHz = Math.round(absHz - tuneKhz * 1000);
+
+        const lowEl = document.getElementById('filterLowInput');
+        const highEl = document.getElementById('filterHighInput');
+        if (!lowEl || !highEl) return;
+
+        let low = parseFloat(lowEl.value);
+        let high = parseFloat(highEl.value);
+        if (!Number.isFinite(low) || !Number.isFinite(high)) {
+            const pb = getActivePassbandKhz();
+            low = pb[0] * 1000;
+            high = pb[1] * 1000;
+        }
+
+        if (target === 'low') low = relHz;
+        if (target === 'high') high = relHz;
+        [low, high] = clampEdges(low, high, target);
+
+        lowEl.value = Math.round(low);
+        highEl.value = Math.round(high);
+        if (typeof window.sendFilterEdges === 'function') {
+            window.sendFilterEdges();
+        }
+    }
+
+    function startDrag(e, target) {
+        dragTarget = target;
+        e.preventDefault();
+        e.stopPropagation();
+    }
+
+    loHandle.addEventListener('pointerdown', e => startDrag(e, 'low'));
+    hiHandle.addEventListener('pointerdown', e => startDrag(e, 'high'));
+    window.addEventListener('pointermove', e => {
+        if (!dragTarget) return;
+        applyDraggedEdge(e.clientX, dragTarget);
+    });
+    window.addEventListener('pointerup', () => { dragTarget = null; });
+    window.addEventListener('pointercancel', () => { dragTarget = null; });
+})();
 
 function buildDbLabels() {
     const H = spC.height; if (!H) return;
@@ -721,6 +801,9 @@ function rjsTune(khz) {
     } catch (e) { console.warn('[overlay] rjsTune: ws not accessible', e); }
     // Update spectrum object directly (like spectrum.js line 351)
     if (window.spectrum) window.spectrum.frequency = khz * 1000;
+    // Sync frequencyHz (var in radio.js, on window) so the per-frame sync loop
+    // at line ~684 won't see a mismatch and revert tuneKhz to the stale value.
+    frequencyHz = khz * 1000;
     // Keep the original freq input in sync for UI consistency
     const inp = document.getElementById('freq');
     if (inp) inp.value = khz.toFixed(3);
@@ -737,6 +820,26 @@ function rjsMode(mode) {
     } catch (e) { console.warn('[overlay] rjsMode: ws not accessible', e); }
     const modeEl = document.getElementById('mode');
     if (modeEl) modeEl.value = mode;
+    // Reinitialize PCMPlayer with correct sample rate for this mode.
+    // Without this, FM↔non-FM switches produce garbled audio because
+    // the player stays at the old sample rate. Mirrors radio.js setMode().
+    try {
+        if (typeof player !== 'undefined' && player) {
+            const newSampleRate = (mode === 'fm') ? 24000 : 12000;
+            const newChannels = (mode === 'iq') ? 2 : 1;
+            player.destroy();
+            player = new PCMPlayer({
+                encoding: '16bitInt',
+                channels: newChannels,
+                sampleRate: newSampleRate,
+                flushingTime: 250
+            });
+            const vol = document.getElementById('volume_control');
+            if (vol && typeof setPlayerVolume === 'function') {
+                setPlayerVolume(vol.value);
+            }
+        }
+    } catch (e) { console.warn('[overlay] rjsMode: PCMPlayer reinit failed', e); }
     drawScale(); updatePB();
 }
 function getStep() {

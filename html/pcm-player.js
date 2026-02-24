@@ -85,7 +85,6 @@ PCMPlayer.prototype.feed = function(data) {
     tmp.set(this.samples, 0);
     tmp.set(fdata, this.samples.length);
     this.samples = tmp;
-    this.audioCtx.resume();
 };
 
 PCMPlayer.prototype.getFormatedValue = function(data) {

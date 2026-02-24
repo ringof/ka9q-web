@@ -633,7 +633,7 @@ function applyQuickBW() {
          console.log("WebSocket closed:", evt);
       }
 
-      async function on_ws_message(evt) {
+      function on_ws_message(evt) {
         if(typeof evt.data === 'string') {
           // text data
           //console.log(evt.data);
@@ -745,8 +745,13 @@ function applyQuickBW() {
             if_power = view.getFloat32(i,true); i+=4;
             noise_density_audio = view.getFloat32(i,true); i+=4;
             const z_level = view.getUint32(i,true); i+=4;
-            const bins_autorange_offset =  view.getFloat32(i,true); i+=4;
-            const bins_autorange_gain =  view.getFloat32(i,true); i+=4;
+            let bins_autorange_offset =  view.getFloat32(i,true); i+=4;
+            let bins_autorange_gain =  view.getFloat32(i,true); i+=4;
+            // Fallback for servers that don't compute autorange (base/step = 0)
+            if (bins_autorange_gain === 0) {
+              bins_autorange_gain = 0.5;    // ka9q-radio FIXED_STEP default
+              bins_autorange_offset = -160;  // typical SDR noise floor in dBm
+            }
 
             if(update) {
               calcFrequencies();
@@ -809,7 +814,7 @@ function applyQuickBW() {
             }
             */
 
-            update_stats();
+            try { update_stats(); } catch (e) { /* non-fatal */ }
             break;
             case 0x7E: // Channel Data
               while(i<data.byteLength) {
@@ -1966,7 +1971,7 @@ function formatUptimeDHMS(seconds) {
 }
 
 function update_stats() {
-  if (spectrum.paused)
+  if (!spectrum || spectrum.paused)
     return;
 
     // GPS time isn't UTC; it started at Sunday January 6, 1980 at 00:00:00 UTC and there have been 18 UTC leap seconds since
