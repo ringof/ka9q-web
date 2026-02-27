@@ -30,17 +30,36 @@ hf.local multicast resolution via avahi-resolve, and connected users
 
 import configparser
 import json
+import logging
 import os
 import re
 import socket
 import subprocess
+import sys
 import threading
 import time
 from datetime import datetime, timezone
 from html.parser import HTMLParser
 
-import requests
-from flask import Flask, jsonify, render_template
+# Configure logging early so startup errors are visible in journalctl
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(message)s",
+    stream=sys.stderr,
+)
+log = logging.getLogger("system_status")
+
+try:
+    import requests
+except ImportError:
+    log.error("Missing dependency: requests (pip install requests)")
+    sys.exit(1)
+
+try:
+    from flask import Flask, jsonify, render_template
+except ImportError:
+    log.error("Missing dependency: flask (pip install flask)")
+    sys.exit(1)
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -463,8 +482,8 @@ def poller():
     while True:
         try:
             _run_all_checks()
-        except Exception as e:
-            app.logger.warning("Poller error: %s", e)
+        except Exception:
+            log.exception("Poller error")
         time.sleep(interval)
 
 
@@ -504,13 +523,22 @@ def api_status():
 
 
 def main():
+    log.info("Starting system status monitor")
+    log.info("Config file: %s", conf_path)
+    log.info("Listening on port %s, poll interval %ss", cfg.get("port"), cfg.get("poll_interval"))
+
     # Run checks once synchronously so the first page load has data
-    _run_all_checks()
+    try:
+        _run_all_checks()
+        log.info("Initial checks complete, overall: %s", _get_status()["overall"])
+    except Exception:
+        log.exception("Initial checks failed (will retry in poller)")
 
     t = threading.Thread(target=poller, daemon=True)
     t.start()
 
     port = cfg.getint("port")
+    log.info("Starting Flask on 0.0.0.0:%d", port)
     app.run(host="0.0.0.0", port=port, debug=False)
 
 
