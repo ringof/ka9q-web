@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<!--
+  KA9Q SDR System Status Monitor
+
+  Copyright (C) 2025-2026 W1EUJ
+  Part of ka9q-web — based on ka9q-web by John Melton, G0ORX (N6LYT).
+  Licensed under the GNU GPL v3 or later. See LICENSE.
+-->
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SDR System Status</title>
+  <link rel="stylesheet" href="/static/system_status.css">
+</head>
+<body>
+
+<div class="header">
+  <h1>SDR System Status</h1>
+  <div class="header-right">
+    <span class="clock" id="clock"></span>
+  </div>
+</div>
+
+<div class="banner banner-{{ status.overall }}">
+  {% if status.overall == 'operational' %}
+    All systems operational
+  {% elif status.overall == 'degraded' %}
+    System degraded — check warnings below
+  {% elif status.overall == 'down' %}
+    System down — errors detected
+  {% else %}
+    Status unknown — waiting for first poll
+  {% endif %}
+</div>
+
+<div class="status-grid">
+  {% for key, label in check_labels %}
+    {% set check = status.checks.get(key, {}) %}
+    {% set s = check.get('status', 'unknown') %}
+    <div class="status-card">
+      <div class="card-header">
+        <span class="status-dot dot-{{ s }}"></span>
+        <span class="card-title">{{ label }}</span>
+      </div>
+      <div class="card-detail">{{ check.get('detail', 'Waiting for data...') }}</div>
+    </div>
+  {% endfor %}
+</div>
+
+{% if status.timestamp %}
+<div class="footer">
+  Last checked: <span class="mono">{{ status.timestamp }}</span>
+  &middot; Polling every {{ config.get('status', {}).get('poll_interval', '10') }}s
+  &middot; Auto-refresh 10s
+</div>
+{% endif %}
+
+<script>
+(function() {
+  // Update clock
+  function updateClock() {
+    var el = document.getElementById('clock');
+    if (el) el.textContent = new Date().toISOString().slice(0, 19) + 'Z';
+  }
+  updateClock();
+  setInterval(updateClock, 1000);
+
+  // Auto-refresh via fetch to avoid full page flash
+  setInterval(function() {
+    fetch('/api/status')
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        // Reload the page to re-render with new data
+        // (simple approach — avoids duplicating Jinja template logic in JS)
+        location.reload();
+      })
+      .catch(function() {});
+  }, 10000);
+})();
+</script>
+
+</body>
+</html>

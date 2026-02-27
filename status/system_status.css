@@ -1,0 +1,184 @@
+/*
+ * KA9Q SDR System Status Monitor — dark theme
+ *
+ * Matches the admin dashboard and SDR overlay UI style.
+ *
+ * Copyright (C) 2025-2026 W1EUJ
+ * Part of ka9q-web — based on ka9q-web by John Melton, G0ORX (N6LYT).
+ * Licensed under the GNU GPL v3 or later. See LICENSE.
+ */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  background: #000;
+  color: #fff;
+  font: 13px "DejaVu Sans", Verdana, Geneva, sans-serif;
+  min-height: 100vh;
+}
+
+/* ---- Header ---- */
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 20px;
+  background: #575757;
+  border-bottom: 3px solid #aaa;
+}
+
+.header h1 {
+  font-size: 16px;
+  color: #ccc;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.clock {
+  color: #aaa;
+  font: 13px Consolas, monospace;
+}
+
+/* ---- Overall status banner ---- */
+
+.banner {
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: bold;
+  text-align: center;
+}
+
+.banner-operational {
+  background: #1a3a1a;
+  color: #44cc44;
+  border-bottom: 1px solid #2a5a2a;
+}
+
+.banner-degraded {
+  background: #3a3a1a;
+  color: #e8c000;
+  border-bottom: 1px solid #5a5a2a;
+}
+
+.banner-down {
+  background: #3a1a1a;
+  color: #ff4444;
+  border-bottom: 1px solid #5a2a2a;
+}
+
+.banner-unknown {
+  background: #2a2a2a;
+  color: #888;
+  border-bottom: 1px solid #3a3a3a;
+}
+
+/* ---- Status grid ---- */
+
+.status-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 12px;
+  padding: 16px 20px;
+}
+
+.status-card {
+  background: #3a3a3a;
+  border-radius: 5px;
+  padding: 14px 16px;
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.card-title {
+  font-size: 14px;
+  color: #ccc;
+  font-weight: bold;
+}
+
+.card-detail {
+  color: #999;
+  font: 13px Consolas, monospace;
+  word-break: break-word;
+}
+
+/* ---- Status indicator dots ---- */
+
+.status-dot {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.dot-ok {
+  background: #44cc44;
+  box-shadow: 0 0 4px #44cc44;
+}
+
+.dot-warning {
+  background: #e8c000;
+  box-shadow: 0 0 4px #e8c000;
+}
+
+.dot-error {
+  background: #ff4444;
+  box-shadow: 0 0 4px #ff4444;
+}
+
+.dot-unknown {
+  background: #666;
+}
+
+/* ---- Footer ---- */
+
+.footer {
+  padding: 10px 20px;
+  color: #666;
+  font-size: 12px;
+  text-align: center;
+  border-top: 1px solid #2a2a2a;
+}
+
+.mono {
+  font-family: Consolas, monospace;
+}
+
+/* ---- Scrollbar (Firefox) ---- */
+
+* {
+  scrollbar-color: #777 #575757;
+  scrollbar-width: thin;
+}
+
+/* ---- Responsive ---- */
+
+@media (max-width: 480px) {
+  .status-grid {
+    grid-template-columns: 1fr;
+    padding: 10px;
+    gap: 8px;
+  }
+
+  .header {
+    padding: 10px 12px;
+  }
+
+  .header h1 {
+    font-size: 14px;
+  }
+}

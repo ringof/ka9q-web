@@ -1,0 +1,23 @@
+[status]
+port = 8084
+poll_interval = 10
+
+# ka9q-web status endpoint
+ka9q_url = http://localhost:8082/status
+
+# systemd service name for ka9q-radio
+radiod_service = radiod@rx888-web
+
+# USB device identifiers
+gpsdo_vid = 1dd2
+gpsdo_pid = 2443
+rx888_vid = 04b4
+rx888_pid_operating = 00f1
+rx888_pid_dfu = 00f3
+
+# gpsd connection
+gpsd_host = 127.0.0.1
+gpsd_port = 2947
+
+# mDNS multicast group name
+mcast_name = hf.local
