@@ -10,9 +10,7 @@ ExecStart=/opt/ka9q-web/status/venv/bin/python system_status.py
 WorkingDirectory=/opt/ka9q-web/status
 Environment=KA9Q_STATUS_CONF=/opt/ka9q-web/status/system_status.conf
 Restart=on-failure
-RestartSec=5
-StartLimitIntervalSec=300
-StartLimitBurst=5
+RestartSec=20
 
 [Install]
 WantedBy=multi-user.target
