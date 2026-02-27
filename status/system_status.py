@@ -67,7 +67,7 @@ except ImportError:
 
 DEFAULT_CONF = {
     "port": "8084",
-    "poll_interval": "10",
+    "poll_interval": "5",
     "ka9q_url": "http://localhost:8082/status",
     "radiod_service": "radiod@rx888-web",
     "gpsdo_vid": "1dd2",
@@ -182,7 +182,7 @@ def check_gpsdo_usb():
 
 
 def check_gps_fix():
-    """Query gpsd for GPS fix status."""
+    """Query gpsd for GPS fix status with detailed position/sat info."""
     host = cfg.get("gpsd_host")
     port = cfg.getint("gpsd_port")
 
@@ -197,9 +197,11 @@ def check_gps_fix():
         # Request a data report
         sock.sendall(b'?WATCH={"enable":true,"json":true}\n')
 
-        # Read until we get a TPV sentence (up to a few messages)
+        # Collect TPV and SKY sentences
+        tpv = None
+        sky = None
         buf = b""
-        for _ in range(10):
+        for _ in range(15):
             chunk = sock.recv(4096)
             if not chunk:
                 break
@@ -212,18 +214,53 @@ def check_gps_fix():
                     msg = json.loads(line)
                 except (json.JSONDecodeError, ValueError):
                     continue
-                if msg.get("class") == "TPV":
-                    mode = msg.get("mode", 0)
-                    sock.close()
-                    if mode >= 3:
-                        return {"status": "ok", "detail": "3D fix"}
-                    elif mode == 2:
-                        return {"status": "warning", "detail": "2D fix (no altitude)"}
-                    else:
-                        return {"status": "warning", "detail": "No fix (acquiring)"}
+                if msg.get("class") == "TPV" and tpv is None:
+                    tpv = msg
+                elif msg.get("class") == "SKY" and sky is None:
+                    sky = msg
+            if tpv and sky:
+                break
 
         sock.close()
-        return {"status": "warning", "detail": "gpsd responding, no TPV data yet"}
+
+        if tpv is None:
+            return {"status": "warning", "detail": "gpsd responding, no TPV data yet"}
+
+        mode = tpv.get("mode", 0)
+
+        # Build detail parts
+        parts = []
+        if mode >= 3:
+            parts.append("3D fix")
+        elif mode == 2:
+            parts.append("2D fix")
+        else:
+            parts.append("No fix (acquiring)")
+
+        lat = tpv.get("lat")
+        lon = tpv.get("lon")
+        if lat is not None and lon is not None:
+            parts.append(f"{lat:.5f}, {lon:.5f}")
+
+        gps_time = tpv.get("time")
+        if gps_time:
+            # Shorten ISO timestamp to HH:MM:SS
+            parts.append(f"time {gps_time[11:19]}Z" if len(gps_time) >= 19 else f"time {gps_time}")
+
+        if sky:
+            # nSat = total visible, uSat = used in fix
+            n_used = sky.get("uSat", sky.get("nSat"))
+            if n_used is not None:
+                parts.append(f"{n_used} sats")
+
+        detail = " | ".join(parts)
+
+        if mode >= 3:
+            return {"status": "ok", "detail": detail}
+        elif mode == 2:
+            return {"status": "warning", "detail": detail}
+        else:
+            return {"status": "warning", "detail": detail}
 
     except socket.timeout:
         return {"status": "error", "detail": "gpsd connection timed out"}
@@ -239,7 +276,7 @@ def check_gps_fix():
 
 
 def check_rx888_usb():
-    """Check if RX888 is present on USB and in correct mode."""
+    """Check if RX888 is present on USB by matching both VID and PID."""
     target_vid = cfg.get("rx888_vid")
     pid_operating = cfg.get("rx888_pid_operating")
     pid_dfu = cfg.get("rx888_pid_dfu")
@@ -248,9 +285,10 @@ def check_rx888_usb():
         for entry in os.listdir(USB_SYS_PATH):
             dev_path = os.path.join(USB_SYS_PATH, entry)
             vid = _read_usb_attr(dev_path, "idVendor")
+            pid = _read_usb_attr(dev_path, "idProduct")
             if vid != target_vid:
                 continue
-            pid = _read_usb_attr(dev_path, "idProduct")
+            # Only match known RX888 PIDs; skip other Cypress/Infineon devices
             bus = _read_usb_attr(dev_path, "busnum") or "?"
             if pid == pid_operating:
                 return {
@@ -261,11 +299,6 @@ def check_rx888_usb():
                 return {
                     "status": "error",
                     "detail": f"RX888 in DFU mode (bus {bus}) — firmware not loaded",
-                }
-            else:
-                return {
-                    "status": "warning",
-                    "detail": f"RX888 VID match, unknown PID {pid} (bus {bus})",
                 }
     except OSError:
         pass
@@ -306,7 +339,7 @@ def check_radiod_service():
             return {"status": "ok", "detail": detail}
         elif state == "activating":
             return {
-                "status": "warning",
+                "status": "error",
                 "detail": f"{service} activating (restart loop?), {restarts} restart(s)",
             }
         elif state == "failed":
@@ -434,17 +467,17 @@ def check_ka9q_web():
 
     except requests.ConnectionError:
         return {
-            "status": "warning",
+            "status": "error",
             "detail": "ka9q-web not reachable (connection refused)",
         }
     except requests.Timeout:
         return {
-            "status": "warning",
+            "status": "error",
             "detail": "ka9q-web not reachable (timed out)",
         }
     except requests.RequestException as e:
         return {
-            "status": "warning",
+            "status": "error",
             "detail": f"ka9q-web error: {e}",
         }
 

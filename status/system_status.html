@@ -52,7 +52,7 @@
 <div class="footer">
   Last checked: <span class="mono">{{ status.timestamp }}</span>
   &middot; Polling every {{ config.get('status', {}).get('poll_interval', '10') }}s
-  &middot; Auto-refresh 10s
+  &middot; Auto-refresh 5s
 </div>
 {% endif %}
 
@@ -76,7 +76,7 @@
         location.reload();
       })
       .catch(function() {});
-  }, 10000);
+  }, 5000);
 })();
 </script>
 
