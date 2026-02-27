@@ -89,6 +89,7 @@ body {
   gap: 12px;
   padding: 16px 20px;
   max-width: 800px;
+  margin: 0 auto;
 }
 
 .status-card {
