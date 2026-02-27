@@ -6,9 +6,11 @@ After=network-online.target
 Type=simple
 User=radio
 Group=radio
-ExecStart=/opt/ka9q-web/status/venv/bin/python system_status.py
+ExecStart=/opt/ka9q-web/status/venv/bin/python -u system_status.py
 WorkingDirectory=/opt/ka9q-web/status
 Environment=KA9Q_STATUS_CONF=/opt/ka9q-web/status/system_status.conf
+StandardOutput=journal
+StandardError=journal
 Restart=on-failure
 RestartSec=20
 
