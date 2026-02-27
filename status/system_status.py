@@ -500,7 +500,7 @@ def _run_all_checks():
     radiod_status = checks["radiod"]["status"]
     if radiod_status == "error":
         checks["ka9q_web"] = {
-            "status": "warning",
+            "status": "error",
             "detail": "N/A — radiod not running",
         }
     else:
