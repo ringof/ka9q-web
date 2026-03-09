@@ -132,7 +132,7 @@ int verbose = 0;
 /* sleep time for spectrum polling and related retries (microseconds) */
 useconds_t spectrum_poll_us = 100000; // default 100 ms
 
-#define MAX_BINS 20000
+#define MAX_BINS 1620
 
 onion_connection_status websocket_cb(void *data, onion_websocket * ws,
                                                ssize_t data_ready_len);
@@ -299,53 +299,53 @@ struct zoom_table_t {
 
 #if 0
 const struct zoom_table_t zoom_table[] = {
-  {40000, 20000},
-  {20000, 20000},
-  {16000, 20000},
-  {8000, 20000},
-  {4000, 20000},
-  {2000, 20000},
-  {1000, 20000},
-  {800, 20000},
-  {400, 20000},
-  {200, 20000},
-  {120, 20000},
-  {80, 20000},
-  {40, 20000},
-  {20, 20000},
-  {10, 20000},
-  {5, 20000},
-  {2, 20000},
-  {1, 20000}
+  {40000, 1620},
+  {20000, 1620},
+  {16000, 1620},
+  {8000, 1620},
+  {4000, 1620},
+  {2000, 1620},
+  {1000, 1620},
+  {800, 1620},
+  {400, 1620},
+  {200, 1620},
+  {120, 1620},
+  {80, 1620},
+  {40, 1620},
+  {20, 1620},
+  {10, 1620},
+  {5, 1620},
+  {2, 1620},
+  {1, 1620}
 };
 #else
 const struct zoom_table_t zoom_table[] = {
-  //{100000, 20000}, // useful only for very fast front ends?
-  //{80000, 20000},
-  //{50000, 20000},
-  {40000, 20000},
-  {20000, 20000},
-  {10000, 20000},
-  {8000, 20000},
-  {5000, 20000},
-  {4000, 20000},
-  {2000, 20000},
-  {1000, 20000},
-  {800, 20000},
-  {500, 20000},
-  {400, 20000},
-  {200, 20000},
-  {100, 20000},
-  {80, 20000},
-  {50, 20000},
-  {40, 20000},
-  {20, 20000},
-  {10, 20000},
-  {8, 20000},
-  {5, 20000},
-  {4, 20000},
-  {2, 20000},
-  {1, 20000}
+  //{100000, 1620}, // useful only for very fast front ends?
+  //{80000, 1620},
+  //{50000, 1620},
+  {40000, 1620},
+  {20000, 1620},
+  {10000, 1620},
+  {8000, 1620},
+  {5000, 1620},
+  {4000, 1620},
+  {2000, 1620},
+  {1000, 1620},
+  {800, 1620},
+  {500, 1620},
+  {400, 1620},
+  {200, 1620},
+  {100, 1620},
+  {80, 1620},
+  {50, 1620},
+  {40, 1620},
+  {20, 1620},
+  {10, 1620},
+  {8, 1620},
+  {5, 1620},
+  {4, 1620},
+  {2, 1620},
+  {1, 1620}
 };
 #endif
 
@@ -1929,9 +1929,9 @@ void *ctrl_thread(void *arg) {
     static double last_sent_backend_frequency = 0.0;
   struct session *sp;
   socklen_t ssize = sizeof(Metadata_source_socket);
-  uint8_t buffer[PKTSIZE];
+  uint8_t buffer[PKTSIZE/sizeof(float)];
   uint8_t output_buffer[PKTSIZE];
-  float powers[MAX_BINS];
+  float powers[PKTSIZE / sizeof(float)];
   uint64_t time;
   double r_freq;
   double r_bin_bw;
@@ -2003,7 +2003,7 @@ void *ctrl_thread(void *arg) {
           *(float *)ip++ = (float)Channel.spectrum.step;
 
           int header_size=(uint8_t*)ip-&output_buffer[0];
-          int length = MAX_BINS;
+          int length=(PKTSIZE-header_size)/sizeof(float);
           int npower = extract_powers(powers,length,&time,&r_freq,&r_bin_bw,sp->ssrc+1,buffer+1,rx_length-1,sp);
           if(npower < 0){
             /* char filename[256]; */
