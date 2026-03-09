@@ -85,7 +85,7 @@
           spectrum.backendMarkerHz = null;
         } catch (e) { /* ignore */ }
       }
-  let binCount = 1620;
+  let binCount = 3240;
   let spanHz = binCount * binWidthHz;
   // Spectrum poll interval in milliseconds (client-side default)
   var spectrumPoll = 100;
@@ -3101,32 +3101,32 @@ async function fetchZoomTableSize() {
 // --- Hardcoded zoom table to match ka9q-web.c ---
 // This must be available before overlays or zoom logic is used
 window.zoomTable = [
- // { bin_width: 100000, bin_count: 1620 },
- // { bin_width: 80000, bin_count: 1620 },
- // { bin_width: 50000, bin_count: 1620 },
-  { bin_width: 40000, bin_count: 1620 },
-  { bin_width: 20000, bin_count: 1620 },
-  { bin_width: 10000, bin_count: 1620 },
-  { bin_width: 8000, bin_count: 1620 },
-  { bin_width: 5000, bin_count: 1620 },
-  { bin_width: 4000, bin_count: 1620 },
-  { bin_width: 2000, bin_count: 1620 },
-  { bin_width: 1000, bin_count: 1620 },
-  { bin_width: 800, bin_count: 1620 },
-  { bin_width: 500, bin_count: 1620 },
-  { bin_width: 400, bin_count: 1620 },
-  { bin_width: 200, bin_count: 1620 },
-  { bin_width: 100, bin_count: 1620 },
-  { bin_width: 80, bin_count: 1620 },
-  { bin_width: 50, bin_count: 1620 },
-  { bin_width: 40, bin_count: 1620 },
-  { bin_width: 20, bin_count: 1620 },
-  { bin_width: 10, bin_count: 1620 },
-  { bin_width: 8, bin_count: 1620 },
-  { bin_width: 5, bin_count: 1620 },
-  { bin_width: 4, bin_count: 1620 },
-  { bin_width: 2, bin_count: 1620 },
-  { bin_width: 1, bin_count: 1620 }
+ // { bin_width: 100000, bin_count: 3240 },
+ // { bin_width: 80000, bin_count: 3240 },
+ // { bin_width: 50000, bin_count: 3240 },
+  { bin_width: 40000, bin_count: 3240 },
+  { bin_width: 20000, bin_count: 3240 },
+  { bin_width: 10000, bin_count: 3240 },
+  { bin_width: 8000, bin_count: 3240 },
+  { bin_width: 5000, bin_count: 3240 },
+  { bin_width: 4000, bin_count: 3240 },
+  { bin_width: 2000, bin_count: 3240 },
+  { bin_width: 1000, bin_count: 3240 },
+  { bin_width: 800, bin_count: 3240 },
+  { bin_width: 500, bin_count: 3240 },
+  { bin_width: 400, bin_count: 3240 },
+  { bin_width: 200, bin_count: 3240 },
+  { bin_width: 100, bin_count: 3240 },
+  { bin_width: 80, bin_count: 3240 },
+  { bin_width: 50, bin_count: 3240 },
+  { bin_width: 40, bin_count: 3240 },
+  { bin_width: 20, bin_count: 3240 },
+  { bin_width: 10, bin_count: 3240 },
+  { bin_width: 8, bin_count: 3240 },
+  { bin_width: 5, bin_count: 3240 },
+  { bin_width: 4, bin_count: 3240 },
+  { bin_width: 2, bin_count: 3240 },
+  { bin_width: 1, bin_count: 3240 }
 ];
 
 // Utility: Find closest zoom level index for a given value
